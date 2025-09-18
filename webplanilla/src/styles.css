@@ -248,7 +248,7 @@ input:focus, textarea:focus, select:focus {
   opacity: 0.6;
   cursor: not-allowed;
 }
-
+/**/
 /* Print styles */
 @media print {
   * {
