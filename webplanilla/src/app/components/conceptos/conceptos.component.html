@@ -63,19 +63,19 @@
           class="tab-button"
           [class.active]="currentTab === 'ingresos'"
           (click)="showTab('ingresos')">
-          💰 Ingresos ({{conceptosPorTipo['ingreso']?.length || 0}})
+          💰 Ingresos ({{conceptosPorTipo['ingreso'].length || 0}})
         </button>
         <button 
           class="tab-button"
           [class.active]="currentTab === 'descuentos'"
           (click)="showTab('descuentos')">
-          📉 Descuentos ({{conceptosPorTipo['descuento']?.length || 0}})
+          📉 Descuentos ({{conceptosPorTipo['descuento'].length || 0}})
         </button>
         <button 
           class="tab-button"
           [class.active]="currentTab === 'aportes'"
           (click)="showTab('aportes')">
-          🏛️ Aportes ({{conceptosPorTipo['aporte']?.length || 0}})
+          🏛️ Aportes ({{conceptosPorTipo['aporte'].length || 0}})
         </button>
         <button 
           class="tab-button"

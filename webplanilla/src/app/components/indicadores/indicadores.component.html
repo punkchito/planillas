@@ -153,8 +153,8 @@
             <strong>🔍 Debug Info:</strong><br>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
               <div>
-                TreeNodes: <span style="color: #0066cc;">{{ treeNodes?.length || 0 }}</span><br>
-                Variables: <span style="color: #0066cc;">{{ variables?.length || 0 }}</span><br>
+                TreeNodes: <span style="color: #0066cc;">{{ treeNodes.length || 0 }}</span><br>
+                Variables: <span style="color: #0066cc;">{{ variables.length || 0 }}</span><br>
                 Selected: <span style="color: #009900;">{{ selectedNode?.name || 'none' }}</span>
               </div>
               <div>
@@ -553,7 +553,7 @@
           </div>
           <!-- Debug info para variables -->
           <small style="color: #666; font-size: 11px;" *ngIf="true">
-            Variables disponibles: {{ variables?.length || 0 }}
+            Variables disponibles: {{ variables.length! || 0 }}
           </small>
         </div>
         <div class="form-group">
@@ -614,7 +614,7 @@
           </div>
           <!-- Debug info para dimensiones -->
           <small style="color: #666; font-size: 11px;" *ngIf="true">
-            Dimensiones disponibles: {{ dimensions?.length || 0 }}
+            Dimensiones disponibles: {{ dimensions.length! || 0 }}
             <span *ngIf="indicatorForm.get('dimension_id')?.value"> | Seleccionada: {{
               indicatorForm.get('dimension_id')?.value }}</span>
           </small>
