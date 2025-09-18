@@ -242,7 +242,7 @@ jobs:
           # NO eliminar volúmenes para mantener los datos
           # NO hacer prune agresivo para mantener las imágenes
           echo "🧹 Light cleanup..."
-          docker system prune -f --filter "dangling=true"
+          docker system prune -f"
           
           # Verificar si las imágenes existen en el registry
           echo "🔍 Checking images availability..."
