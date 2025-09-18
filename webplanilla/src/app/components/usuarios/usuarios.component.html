@@ -1,0 +1,660 @@
+<div class="usuarios-container">
+  <!-- Header -->
+  <div class="header-section">
+    <div class="title-section">
+      <h1 class="page-title">
+        <i class="icon-users"></i>
+        Gestión de Usuarios y Roles
+      </h1>
+      <p class="page-description">Administra usuarios del sistema y configura permisos por roles</p>
+    </div>
+
+    <!-- Estadísticas Cards -->
+    <div class="stats-grid" *ngIf="estadisticas">
+      <div class="stat-card">
+        <div class="stat-icon total">
+          <i class="icon-user-group"></i>
+        </div>
+        <div class="stat-content">
+          <span class="stat-number">{{ estadisticas.general.total_usuarios }}</span>
+          <span class="stat-label">Total Usuarios</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon active">
+          <i class="icon-user-check"></i>
+        </div>
+        <div class="stat-content">
+          <span class="stat-number">{{ estadisticas.general.usuarios_activos }}</span>
+          <span class="stat-label">Activos</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon inactive">
+          <i class="icon-user-x"></i>
+        </div>
+        <div class="stat-content">
+          <span class="stat-number">{{ estadisticas.general.usuarios_inactivos }}</span>
+          <span class="stat-label">Inactivos</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon roles">
+          <i class="icon-shield"></i>
+        </div>
+        <div class="stat-content">
+          <span class="stat-number">{{ estadisticas.general.total_roles }}</span>
+          <span class="stat-label">Roles</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions Bar -->
+  <div class="actions-bar">
+    <div class="actions-left">
+      <button type="button" class="btn btn-primary btn-create" (click)="openCreateModal()">
+        <i class="icon-plus"></i>
+        Nuevo Usuario
+      </button>
+
+      <button type="button" class="btn btn-outline" (click)="openRoleModal('create')">
+        <i class="icon-shield"></i>
+        Nuevo Rol
+      </button>
+
+      <button type="button" class="btn btn-outline" (click)="showImportModal = true">
+        <i class="icon-upload"></i>
+        Importar CSV
+      </button>
+    </div>
+
+    <div class="actions-right">
+      <button type="button" class="btn btn-success" (click)="exportarCSV()">
+        <i class="icon-file-export"></i>
+        Exportar CSV
+      </button>
+    </div>
+  </div>
+
+  <div class="content-grid">
+    <!-- Roles Section -->
+    <section class="roles-section">
+      <div class="section-header">
+        <h3 class="section-title">🛡️ Roles del Sistema</h3>
+        <span class="count-badge">{{ roles.length }} roles configurados</span>
+      </div>
+      <div class="roles-list">
+        <div 
+          *ngFor="let role of roles; trackBy: trackByRole" 
+          class="role-item" 
+          [class.active]="selectedRole === role.id"
+          (click)="selectRole(role.id)">
+          <div class="role-header">
+            <span class="role-name">{{ role.name }}</span>
+            <span class="role-badge" [ngClass]="getRoleBadgeClass(role.type)">{{ role.type.toUpperCase() }}</span>
+          </div>
+          <div class="role-description">{{ role.description }}</div>
+          <div class="role-stats">
+            👥 {{ getUserCountForRole(role.name) }} usuarios asignados
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Users Section -->
+    <section class="users-section">
+      <div class="section-header">
+        <h3 class="section-title">👤 Usuarios del Sistema</h3>
+        <span class="count-badge">{{ totalItems }} usuarios registrados</span>
+      </div>
+
+      <!-- Filters Section -->
+      <div class="users-filters">
+        <form [formGroup]="filtrosForm!" class="filters-form">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label>Rol</label>
+              <select formControlName="role" (change)="applyFilters(filtrosForm!.value)">
+                <option value="">Todos</option>
+                <option *ngFor="let role of roles" [value]="role.id">
+                  {{ role.name }}
+                </option>
+              </select>
+            </div>
+
+            <div class="filter-group">
+              <label>Estado</label>
+              <select formControlName="status" (change)="applyFilters(filtrosForm!.value)">
+                <option value="">Todos</option>
+                <option value="active">Activos</option>
+                <option value="inactive">Inactivos</option>
+              </select>
+            </div>
+
+            <div class="filter-group search-group">
+              <label>Buscar</label>
+              <div class="search-input-container">
+                <i class="icon-search search-icon"></i>
+                <input 
+                  type="text" 
+                  placeholder="Nombre o email..." 
+                  class="search-input"
+                  (input)="onSearch(($any($event.target)).value)"
+                  formControlName="search">
+              </div>
+            </div>
+
+            <div class="filter-group">
+              <label>&nbsp;</label>
+              <button 
+                type="button" 
+                class="btn btn-outline btn-sm" 
+                (click)="filtrosForm!.reset(); loadUsuarios()">
+                🗑️ Limpiar
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- Loading State -->
+      <div *ngIf="loading" class="loading-container">
+        <div class="loading-spinner">
+          <div class="spinner"></div>
+          <p>Cargando usuarios...</p>
+        </div>
+      </div>
+
+      <!-- Users List -->
+      <div *ngIf="!loading" class="users-list">
+        <div 
+          *ngFor="let usuario of usuarios; trackBy: trackByUsuario" 
+          class="user-item">
+          <div class="user-avatar">{{ getUserInitials(usuario.name) }}</div>
+          <div class="user-info">
+            <div class="user-name">{{ usuario.name }}</div>
+            <div class="user-email">{{ usuario.email }}</div>
+            <div class="user-role">
+              <span class="role-badge" [ngClass]="getRoleBadgeClass(usuario.role_type || 'user')">
+                {{ getRoleDisplayName(usuario.role) }}
+              </span>
+            </div>
+          </div>
+          <div class="user-status">
+            <span class="status-badge" 
+                  [class.status-active]="usuario.status === 'active'"
+                  [class.status-inactive]="usuario.status === 'inactive'">
+              {{ usuario.status === 'active' ? 'Activo' : 'Inactivo' }}
+            </span>
+            <span class="last-login">{{ formatLastLogin(usuario.last_login!) }}</span>
+          </div>
+          <div class="user-actions">
+            <button 
+              type="button" 
+              class="btn-action btn-view" 
+              title="Ver detalles"
+              (click)="viewUsuario(usuario.id!)">
+              <i class="icon-eye"></i>
+            </button>
+
+            <button 
+              type="button" 
+              class="btn-action btn-edit" 
+              title="Editar"
+              (click)="openEditModal(usuario)">
+              <i class="icon-edit"></i>
+            </button>
+
+            <button 
+              type="button" 
+              class="btn-action btn-toggle"
+              [class.btn-activate]="usuario.status === 'inactive'"
+              [class.btn-deactivate]="usuario.status === 'active'"
+              [title]="usuario.status === 'active' ? 'Desactivar' : 'Activar'"
+              (click)="toggleEstado(usuario)">
+              <i [class]="usuario.status === 'active' ? 'icon-pause' : 'icon-play'"></i>
+            </button>
+
+            <button 
+              type="button" 
+              class="btn-action btn-delete" 
+              title="Eliminar"
+              (click)="deleteUsuario(usuario)">
+              <i class="icon-trash"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div *ngIf="!loading && usuarios.length === 0" class="empty-state">
+        <i class="icon-users-empty"></i>
+        <h3>No se encontraron usuarios</h3>
+        <p>No hay usuarios que coincidan con los filtros aplicados.</p>
+        <button type="button" class="btn btn-primary" (click)="openCreateModal()">
+          Crear Primer Usuario
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <!-- Permissions Panel -->
+  <section *ngIf="showPermissionsPanel" class="permissions-panel">
+    <div class="permissions-header">
+      <h3>🔐 Permisos del Rol: <span>{{ getRoleDisplayName(selectedRole!) }}</span></h3>
+      <div class="permissions-actions">
+        <button type="button" class="btn btn-outline" (click)="showPermissionsPanel = false">
+          Cerrar
+        </button>
+        <button type="button" class="btn btn-primary" (click)="savePermissions()">
+          💾 Guardar Cambios
+        </button>
+      </div>
+    </div>
+    <div class="permissions-content">
+      <div class="permissions-grid">
+        <div *ngFor="let group of getPermissionGroups() | keyvalue" class="permission-group">
+          <div class="permission-group-header">{{ getGroupName(group.key) }}</div>
+          <div class="permission-group-content">
+            <div *ngFor="let permission of group.value" class="permission-item">
+              <span class="permission-label">{{ permission.name }}</span>
+              <label class="permission-toggle">
+                <input 
+                  type="checkbox" 
+                  [checked]="hasPermission(permission.id)"
+                  (change)="updatePermission(permission.id, ($any($event.target)).checked)">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pagination -->
+  <div *ngIf="!loading && usuarios.length > 0 && totalPages > 1" class="pagination-container">
+    <div class="pagination-info">
+      <span>
+        Página {{ currentPage }} de {{ totalPages }}
+        ({{ totalItems }} registros total)
+      </span>
+    </div>
+
+    <nav class="pagination">
+      <button type="button" class="btn-page" [disabled]="currentPage === 1" (click)="changePage(1)">
+        <i class="icon-chevrons-left"></i>
+      </button>
+
+      <button type="button" class="btn-page" [disabled]="currentPage === 1" (click)="changePage(currentPage - 1)">
+        <i class="icon-chevron-left"></i>
+      </button>
+
+      <button *ngFor="let page of getPages()" type="button" class="btn-page" [class.active]="page === currentPage"
+        (click)="changePage(page)">
+        {{ page }}
+      </button>
+
+      <button type="button" class="btn-page" [disabled]="currentPage === totalPages"
+        (click)="changePage(currentPage + 1)">
+        <i class="icon-chevron-right"></i>
+      </button>
+
+      <button type="button" class="btn-page" [disabled]="currentPage === totalPages"
+        (click)="changePage(totalPages)">
+        <i class="icon-chevrons-right"></i>
+      </button>
+    </nav>
+  </div>
+</div>
+
+<!-- Modal para Crear/Editar Usuario -->
+<div class="modal-overlay" [class.show]="showModal" (click)="closeModal()">
+  <div class="modal-container" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>{{ modalMode === 'create' ? 'Nuevo Usuario' : 'Editar Usuario' }}</h2>
+      <button type="button" class="btn-close" (click)="closeModal()">
+        <i class="icon-x"></i>
+      </button>
+    </div>
+
+    <form [formGroup]="usuarioForm!" (ngSubmit)="onSave()" class="modal-body">
+      <div class="form-section">
+        <h3 class="section-title">
+          <i class="icon-user"></i>
+          Información del Usuario
+        </h3>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="name" class="form-label required">Nombre Completo</label>
+            <input 
+              id="name" 
+              type="text" 
+              class="form-control" 
+              [class.error]="hasFieldError('name')"
+              formControlName="name" 
+              placeholder="Jorge Alberto Zagaceta">
+            <div *ngIf="hasFieldError('name')" class="field-error">
+              {{ getFieldError('name') }}
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="email" class="form-label required">Correo Electrónico</label>
+            <input 
+              id="email" 
+              type="email" 
+              class="form-control" 
+              [class.error]="hasFieldError('email')"
+              formControlName="email" 
+              placeholder="usuario@instituto.edu.pe">
+            <div *ngIf="hasFieldError('email')" class="field-error">
+              {{ getFieldError('email') }}
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="role" class="form-label required">Rol</label>
+            <select 
+              id="role" 
+              class="form-control" 
+              [class.error]="hasFieldError('role')"
+              formControlName="role">
+              <option value="">Seleccionar rol</option>
+              <option *ngFor="let role of roles" [value]="role.id">
+                {{ role.name }}
+              </option>
+            </select>
+            <div *ngIf="hasFieldError('role')" class="field-error">
+              {{ getFieldError('role') }}
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="status" class="form-label">Estado</label>
+            <select id="status" class="form-control" formControlName="status">
+              <option value="active">Activo</option>
+              <option value="inactive">Inactivo</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="dni" class="form-label">DNI</label>
+            <input 
+              id="dni" 
+              type="text" 
+              class="form-control" 
+              [class.error]="hasFieldError('dni')"
+              formControlName="dni" 
+              placeholder="12345678" 
+              maxlength="12">
+            <div *ngIf="hasFieldError('dni')" class="field-error">
+              {{ getFieldError('dni') }}
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="phone" class="form-label">Teléfono</label>
+            <input 
+              id="phone" 
+              type="tel" 
+              class="form-control"
+              formControlName="phone" 
+              placeholder="987654321">
+          </div>
+        </div>
+
+        <div class="form-group" *ngIf="modalMode === 'create'">
+          <label for="password" class="form-label">Contraseña Temporal</label>
+          <input 
+            id="password" 
+            type="password" 
+            class="form-control"
+            formControlName="password" 
+            placeholder="Contraseña temporal para el usuario">
+          <small style="color: #666; margin-top: 0.25rem;">
+            El usuario deberá cambiar la contraseña en su primer acceso. Si se deja vacío, se asignará 'temp123'.
+          </small>
+        </div>
+      </div>
+    </form>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" (click)="closeModal()" [disabled]="saving">
+        Cancelar
+      </button>
+      <button type="button" class="btn btn-primary" (click)="onSave()"
+        [disabled]="saving || usuarioForm!.invalid">
+        <span *ngIf="saving" class="spinner-sm"></span>
+        {{ saving ? 'Guardando...' : (modalMode === 'create' ? 'Crear Usuario' : 'Actualizar Usuario') }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para Crear Rol -->
+<div class="modal-overlay" [class.show]="showRoleModal" (click)="closeRoleModal()">
+  <div class="modal-container" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>🛡️ Nuevo Rol</h2>
+      <button type="button" class="btn-close" (click)="closeRoleModal()">
+        <i class="icon-x"></i>
+      </button>
+    </div>
+
+    <form [formGroup]="roleForm!" (ngSubmit)="saveRole()" class="modal-body">
+      <div class="form-section">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="roleName" class="form-label required">Nombre del Rol</label>
+            <input 
+              id="roleName" 
+              type="text" 
+              class="form-control"
+              formControlName="name" 
+              placeholder="Supervisor">
+          </div>
+
+          <div class="form-group">
+            <label for="roleType" class="form-label required">Tipo de Rol</label>
+            <select id="roleType" class="form-control" formControlName="type">
+              <option value="admin">Administrativo</option>
+              <option value="user">Usuario</option>
+              <option value="viewer">Solo Lectura</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="roleDescription" class="form-label">Descripción</label>
+          <textarea 
+            id="roleDescription" 
+            class="form-control" 
+            formControlName="description" 
+            rows="3" 
+            placeholder="Describe las responsabilidades de este rol..."></textarea>
+        </div>
+      </div>
+    </form>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" (click)="closeRoleModal()">
+        Cancelar
+      </button>
+      <button type="button" class="btn btn-primary" (click)="saveRole()" [disabled]="saving || roleForm!.invalid">
+        <span *ngIf="saving" class="spinner-sm"></span>
+        {{ saving ? 'Guardando...' : 'Crear Rol' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Detalles -->
+<div class="modal-overlay" [class.show]="showDetailModal" (click)="closeDetailModal()">
+  <div class="modal-container modal-large" (click)="$event.stopPropagation()" *ngIf="selectedUsuario">
+    <div class="modal-header">
+      <h2>{{ selectedUsuario.name }}</h2>
+      <button type="button" class="btn-close" (click)="closeDetailModal()">
+        <i class="icon-x"></i>
+      </button>
+    </div>
+
+    <div class="modal-body details-modal">
+      <div class="user-summary">
+        <div class="user-avatar">
+          {{ getUserInitials(selectedUsuario.name) }}
+        </div>
+        <div class="user-info">
+          <h3>{{ selectedUsuario.name }}</h3>
+          <p class="user-position">{{ getRoleDisplayName(selectedUsuario.role) }}</p>
+          <div class="user-badges">
+            <span class="status-badge" 
+                  [class.status-active]="selectedUsuario.status === 'active'"
+                  [class.status-inactive]="selectedUsuario.status === 'inactive'">
+              {{ selectedUsuario.status === 'active' ? 'Activo' : 'Inactivo' }}
+            </span>
+            <span class="info-badge">
+              Creado {{ formatDate(selectedUsuario.created_at!) }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="details-grid">
+        <!-- Información Personal -->
+        <div class="detail-section">
+          <h4><i class="icon-user"></i> Información Personal</h4>
+          <div class="detail-items">
+            <div class="detail-item">
+              <label>Email:</label>
+              <span>{{ selectedUsuario.email }}</span>
+            </div>
+            <div class="detail-item" *ngIf="selectedUsuario.dni">
+              <label>DNI:</label>
+              <span>{{ selectedUsuario.dni }}</span>
+            </div>
+            <div class="detail-item" *ngIf="selectedUsuario.phone">
+              <label>Teléfono:</label>
+              <span>{{ selectedUsuario.phone }}</span>
+            </div>
+            <div class="detail-item">
+              <label>Último Acceso:</label>
+              <span>{{ formatLastLogin(selectedUsuario.last_login!) }}</span>
+            </div>
+            <div class="detail-item">
+              <label>Fecha de Creación:</label>
+              <span>{{ formatDate(selectedUsuario.created_at!) }}</span>
+            </div>
+            <div class="detail-item" *ngIf="selectedUsuario.created_by_name">
+              <label>Creado por:</label>
+              <span>{{ selectedUsuario.created_by_name }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Información del Rol -->
+        <div class="detail-section">
+          <h4><i class="icon-shield"></i> Rol y Permisos</h4>
+          <div class="detail-items">
+            <div class="detail-item">
+              <label>Rol:</label>
+              <span>{{ getRoleDisplayName(selectedUsuario.role) }}</span>
+            </div>
+            <div class="detail-item" *ngIf="selectedUsuario.role_type">
+              <label>Tipo de Rol:</label>
+              <span>{{ selectedUsuario.role_type | titlecase }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" (click)="closeDetailModal()">
+        Cerrar
+      </button>
+      <button type="button" class="btn btn-primary" (click)="openEditModal(selectedUsuario)">
+        <i class="icon-edit"></i>
+        Editar Usuario
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Importación -->
+<div class="modal-overlay" [class.show]="showImportModal" (click)="closeImportModal()">
+  <div class="modal-container" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Importar Usuarios desde CSV</h2>
+      <button type="button" class="btn-close" (click)="closeImportModal()">
+        <i class="icon-x"></i>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div *ngIf="!importResults" class="import-form">
+        <div class="import-instructions">
+          <h4>Instrucciones para importar</h4>
+          <ul>
+            <li>El archivo debe estar en formato CSV</li>
+            <li>La primera fila debe contener los encabezados</li>
+            <li>Los campos obligatorios son: nombre, email y rol</li>
+            <li>Los roles deben existir previamente en el sistema</li>
+          </ul>
+        </div>
+
+        <div class="file-upload-area">
+          <input type="file" id="csvFile" accept=".csv" (change)="onFileSelected($event)" class="file-input">
+          <label for="csvFile" class="file-upload-label">
+            <i class="icon-upload"></i>
+            <span *ngIf="!selectedFile">Seleccionar archivo CSV</span>
+            <span *ngIf="selectedFile">{{ selectedFile.name }}</span>
+          </label>
+        </div>
+
+        <div class="import-actions">
+          <button type="button" class="btn btn-primary" (click)="importarCSV()"
+            [disabled]="!selectedFile || importing">
+            <span *ngIf="importing" class="spinner-sm"></span>
+            {{ importing ? 'Importando...' : 'Importar Usuarios' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Resultados de importación -->
+      <div *ngIf="importResults" class="import-results">
+        <div class="results-summary">
+          <h4>Resultados de la Importación</h4>
+          <div class="summary-stats">
+            <div class="stat-item success">
+              <i class="icon-check-circle"></i>
+              <span>{{ importResults.imported }} exitosos</span>
+            </div>
+            <div class="stat-item error" *ngIf="importResults.errors > 0">
+              <i class="icon-x-circle"></i>
+              <span>{{ importResults.errors }} con errores</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" (click)="closeImportModal()">
+        {{ importResults ? 'Cerrar' : 'Cancelar' }}
+      </button>
+      <button *ngIf="importResults" type="button" class="btn btn-primary" (click)="closeImportModal()">
+        Finalizar
+      </button>
+    </div>
+  </div>
+</div>

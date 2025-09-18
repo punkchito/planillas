@@ -1,0 +1,938 @@
+<div class="trabajadores-container">
+    <!-- Header -->
+    <div class="header-section">
+        <div class="title-section">
+            <h1 class="page-title">
+                <i class="icon-users"></i>
+                Gestión de Trabajadores
+            </h1>
+            <p class="page-description">Administra la información de todos los trabajadores de la organización</p>
+        </div>
+
+        <!-- Estadísticas Cards -->
+        <div class="stats-grid" *ngIf="estadisticas">
+            <div class="stat-card">
+                <div class="stat-icon total">
+                    <i class="icon-user-group"></i>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-number">{{ estadisticas.total_trabajadores }}</span>
+                    <span class="stat-label">Total Trabajadores</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon active">
+                    <i class="icon-user-check"></i>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-number">{{ estadisticas.trabajadores_activos }}</span>
+                    <span class="stat-label">Activos</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon inactive">
+                    <i class="icon-user-x"></i>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-number">{{ estadisticas.trabajadores_inactivos }}</span>
+                    <span class="stat-label">Inactivos</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon contract">
+                    <i class="icon-file-text"></i>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-number">{{ estadisticas.con_contratos_activos }}</span>
+                    <span class="stat-label">Con Contratos</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions Bar -->
+    <div class="actions-bar">
+        <div class="actions-left">
+            <button type="button" class="btn btn-primary btn-create" (click)="openCreateModal()">
+                <i class="icon-plus"></i>
+                Nuevo Trabajador
+            </button>
+
+            <button type="button" class="btn btn-outline" (click)="showImportModal = true">
+                <i class="icon-upload"></i>
+                Importar CSV
+            </button>
+        </div>
+
+        <div class="actions-right">
+            <button type="button" class="btn btn-outline" (click)="descargarPlantilla()">
+                <i class="icon-download"></i>
+                Plantilla CSV
+            </button>
+
+            <button type="button" class="btn btn-success" (click)="exportarCSV()">
+                <i class="icon-file-export"></i>
+                Exportar CSV
+            </button>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="filters-section">
+        <form [formGroup]="filtrosForm!" class="filters-form">
+            <div class="filter-row">
+                <!-- Búsqueda -->
+                <div class="form-group search-group">
+                    <label for="search" class="form-label">Buscar</label>
+                    <div class="search-input-container">
+                        <i class="icon-search search-icon"></i>
+                        <input #searchInput id="search" type="text" class="form-control search-input"
+                            placeholder="DNI, nombres, apellidos..." (input)="onSearch(searchInput.value)"
+                            formControlName="search">
+                    </div>
+                </div>
+
+                <!-- Filtro por Área -->
+                <div class="form-group">
+                    <label for="area" class="form-label">Área</label>
+                    <select id="area" class="form-control" formControlName="area">
+                        <option value="todas">Todas las áreas</option>
+                        <option *ngFor="let area of areas ; let i = index" [value]="area.id">
+                            {{i}}: {{area.nombre || 'NOMBRE_VACIO'}} (ID: {{area.id}})
+                        </option>
+                    </select>
+                </div>
+
+                <!-- Filtro por Cargo -->
+                <div class="form-group">
+                    <label for="cargo" class="form-label">Cargo</label>
+                    <select id="cargo" class="form-control" formControlName="cargo">
+                        <option value="todos">Todos los cargos</option>
+                        <option *ngFor="let cargo of cargos" [value]="cargo.id">
+                            {{ cargo.nombre }}
+                        </option>
+                    </select>
+                </div>
+
+                <!-- Filtro por Estado -->
+                <div class="form-group">
+                    <label for="estado" class="form-label">Estado</label>
+                    <select id="estado" class="form-control" formControlName="estado">
+                        <option value="todos">Todos</option>
+                        <option value="activo">Activos</option>
+                        <option value="inactivo">Inactivos</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="filter-row">
+                <!-- Ordenar por -->
+                <div class="form-group">
+                    <label for="sortBy" class="form-label">Ordenar por</label>
+                    <select id="sortBy" class="form-control" formControlName="sortBy">
+                        <option value="nombres">Nombres</option>
+                        <option value="apellido_paterno">Apellido</option>
+                        <option value="fecha_ingreso">Fecha de Ingreso</option>
+                        <option value="sueldo_basico">Sueldo</option>
+                    </select>
+                </div>
+
+                <!-- Orden -->
+                <div class="form-group">
+                    <label for="sortOrder" class="form-label">Orden</label>
+                    <select id="sortOrder" class="form-control" formControlName="sortOrder">
+                        <option value="ASC">Ascendente</option>
+                        <option value="DESC">Descendente</option>
+                    </select>
+                </div>
+
+                <!-- Resultados por página -->
+                <div class="form-group">
+                    <label for="pageSize" class="form-label">Por página</label>
+                    <select #pageSizeSelect id="pageSize" class="form-control" [value]="filters.limit"
+                        (change)="filters.limit = +pageSizeSelect.value; filters.page = 1; loadTrabajadores()">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Results Summary -->
+    <div class="results-summary">
+        <span class="results-text">
+            Mostrando {{ trabajadores.length }} de {{ totalItems }} trabajadores
+        </span>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="loading" class="loading-container">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Cargando trabajadores...</p>
+        </div>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="!loading && trabajadores.length === 0" class="empty-state">
+        <i class="icon-users-empty"></i>
+        <h3>No se encontraron trabajadores</h3>
+        <p>No hay trabajadores que coincidan con los filtros aplicados.</p>
+        <button type="button" class="btn btn-primary" (click)="openCreateModal()">
+            Crear Primer Trabajador
+        </button>
+    </div>
+
+    <!-- Trabajadores Table -->
+    <div *ngIf="!loading && trabajadores.length > 0" class="table-container">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>DNI</th>
+                        <th>Nombre Completo</th>
+                        <th>Área</th>
+                        <th>Cargo</th>
+                        <th>Tipo Contrato</th> <!-- NUEVO -->
+                        <th>Fecha Ingreso</th>
+                        <th>Sueldo</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let trabajador of trabajadores; trackBy: trackByTrabajador">
+                        <td class="dni-cell">{{ trabajador.dni }}</td>
+                        <td class="name-cell">
+                            <div class="worker-name">
+                                <strong>{{ trabajador.nombre_completo || (trabajador.nombres + ' ' +
+                                    trabajador.apellido_paterno + ' ' + trabajador.apellido_materno) }}</strong>
+                                <small *ngIf="trabajador.correo_electronico" class="worker-email">
+                                    {{ trabajador.correo_electronico }}
+                                </small>
+                            </div>
+                        </td>
+                        <td>{{ trabajador.area || '-' }}</td>
+                        <td>{{ trabajador.cargo || '-' }}</td>
+                        <td>{{ getTipoContratoLabel(trabajador.tipo_contrato) }}</td> <!-- NUEVO -->
+                        <td class="date-cell">{{ trabajador.fecha_ingreso | date:'dd/MM/yyyy' }}</td>
+                        <td class="currency-cell">S/. {{ trabajador.sueldo_basico | number:'1.2-2' }}</td>
+                        <td>
+                            <span class="status-badge" [class.status-active]="trabajador.estado === 'activo'"
+                                [class.status-inactive]="trabajador.estado === 'inactivo'">
+                                {{ trabajador.estado === 'activo' ? 'Activo' : 'Inactivo' }}
+                            </span>
+                        </td>
+                        <td class="actions-cell">
+                            <div class="action-buttons">
+                                <button type="button" class="btn-action btn-view" title="Ver detalles"
+                                    (click)="viewTrabajador(trabajador.id!)">
+                                    <i class="icon-eye"></i>
+                                </button>
+
+                                <button type="button" class="btn-action btn-edit" title="Editar"
+                                    (click)="openEditModal(trabajador)">
+                                    <i class="icon-edit"></i>
+                                </button>
+
+                                <button type="button" class="btn-action btn-toggle"
+                                    [class.btn-activate]="trabajador.estado === 'inactivo'"
+                                    [class.btn-deactivate]="trabajador.estado === 'activo'"
+                                    [title]="trabajador.estado === 'activo' ? 'Desactivar' : 'Activar'"
+                                    (click)="toggleEstado(trabajador)">
+                                    <i [class]="trabajador.estado === 'activo' ? 'icon-pause' : 'icon-play'"></i>
+                                </button>
+
+                                <button type="button" class="btn-action btn-delete" title="Eliminar"
+                                    (click)="deleteTrabajador(trabajador)">
+                                    <i class="icon-trash"></i>
+                                </button>
+                            </div>
+
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    <div *ngIf="!loading && trabajadores.length > 0 && totalPages > 1" class="pagination-container">
+        <div class="pagination-info">
+            <span>
+                Página {{ currentPage }} de {{ totalPages }}
+                ({{ totalItems }} registros total)
+            </span>
+        </div>
+
+        <nav class="pagination">
+            <button type="button" class="btn-page" [disabled]="currentPage === 1" (click)="changePage(1)">
+                <i class="icon-chevrons-left"></i>
+            </button>
+
+            <button type="button" class="btn-page" [disabled]="currentPage === 1" (click)="changePage(currentPage - 1)">
+                <i class="icon-chevron-left"></i>
+            </button>
+
+            <button *ngFor="let page of getPages()" type="button" class="btn-page" [class.active]="page === currentPage"
+                (click)="changePage(page)">
+                {{ page }}
+            </button>
+
+            <button type="button" class="btn-page" [disabled]="currentPage === totalPages"
+                (click)="changePage(currentPage + 1)">
+                <i class="icon-chevron-right"></i>
+            </button>
+
+            <button type="button" class="btn-page" [disabled]="currentPage === totalPages"
+                (click)="changePage(totalPages)">
+                <i class="icon-chevrons-right"></i>
+            </button>
+        </nav>
+    </div>
+</div>
+
+<!-- Modal para Crear/Editar Trabajador -->
+<div class="modal-overlay" [class.show]="showModal" (click)="closeModal()">
+    <div class="modal-container modal-large" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+            <h2>{{ modalMode === 'create' ? 'Nuevo Trabajador' : 'Editar Trabajador' }}</h2>
+            <button type="button" class="btn-close" (click)="closeModal()">
+                <i class="icon-x"></i>
+            </button>
+        </div>
+
+        <form [formGroup]="trabajadorForm!" (ngSubmit)="onSave()" class="modal-body">
+            <!-- Información Personal -->
+            <div class="form-section">
+                <h3 class="section-title">
+                    <i class="icon-user"></i>
+                    Información Personal
+                </h3>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="dni" class="form-label required">DNI</label>
+                        <input id="dni" type="text" class="form-control" [class.error]="hasFieldError('dni')"
+                            formControlName="dni" placeholder="12345678" maxlength="12">
+                        <div *ngIf="hasFieldError('dni')" class="field-error">
+                            {{ getFieldError('dni') }}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="nombres" class="form-label required">Nombres</label>
+                        <input id="nombres" type="text" class="form-control" [class.error]="hasFieldError('nombres')"
+                            formControlName="nombres" placeholder="Juan Carlos">
+                        <div *ngIf="hasFieldError('nombres')" class="field-error">
+                            {{ getFieldError('nombres') }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="apellido_paterno" class="form-label required">Apellido Paterno</label>
+                        <input id="apellido_paterno" type="text" class="form-control"
+                            [class.error]="hasFieldError('apellido_paterno')" formControlName="apellido_paterno"
+                            placeholder="Pérez">
+                        <div *ngIf="hasFieldError('apellido_paterno')" class="field-error">
+                            {{ getFieldError('apellido_paterno') }}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="apellido_materno" class="form-label required">Apellido Materno</label>
+                        <input id="apellido_materno" type="text" class="form-control"
+                            [class.error]="hasFieldError('apellido_materno')" formControlName="apellido_materno"
+                            placeholder="González">
+                        <div *ngIf="hasFieldError('apellido_materno')" class="field-error">
+                            {{ getFieldError('apellido_materno') }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="fecha_nacimiento" class="form-label">Fecha de Nacimiento</label>
+                        <input id="fecha_nacimiento" type="date" class="form-control"
+                            formControlName="fecha_nacimiento">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="genero" class="form-label">Género</label>
+                        <select id="genero" class="form-control" formControlName="genero">
+                            <option value="masculino">Masculino</option>
+                            <option value="femenino">Femenino</option>
+                            <option value="otro">Otro</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="estado_civil" class="form-label">Estado Civil</label>
+                        <select id="estado_civil" class="form-control" formControlName="estado_civil">
+                            <option value="soltero">Soltero</option>
+                            <option value="casado">Casado</option>
+                            <option value="divorciado">Divorciado</option>
+                            <option value="viudo">Viudo</option>
+                            <option value="conviviente">Conviviente</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="nacionalidad" class="form-label">Nacionalidad</label>
+                        <input id="nacionalidad" type="text" class="form-control" formControlName="nacionalidad"
+                            placeholder="Peruana">
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label for="direccion" class="form-label">Dirección</label>
+                        <input id="direccion" type="text" class="form-control" formControlName="direccion"
+                            placeholder="Jr. Los Andes 123, San Juan - Lima">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Información Laboral -->
+            <div class="form-section">
+                <h3 class="section-title">
+                    <i class="icon-briefcase"></i>
+                    Información Laboral
+                </h3>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="fecha_ingreso" class="form-label required">Fecha de Ingreso</label>
+                        <input id="fecha_ingreso" type="date" class="form-control"
+                            [class.error]="hasFieldError('fecha_ingreso')" formControlName="fecha_ingreso">
+                        <div *ngIf="hasFieldError('fecha_ingreso')" class="field-error">
+                            {{ getFieldError('fecha_ingreso') }}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="area_id" class="form-label required">Área</label>
+                        <select id="area_id" class="form-control" [class.error]="hasFieldError('area_id')"
+                            formControlName="area_id">
+                            <option value="">Seleccionar área</option>
+                            <option *ngFor="let area of areas" [value]="area.id">
+                                {{ area.nombre }}
+                            </option>
+                        </select>
+                        <div *ngIf="hasFieldError('area_id')" class="field-error">
+                            {{ getFieldError('area_id') }}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="cargo_id" class="form-label required">Cargo</label>
+                        <!-- CORRECTO: -->
+                        <select id="cargo_id" class="form-control" [class.error]="hasFieldError('cargo_id')"
+                            formControlName="cargo_id" [disabled]="!getControlValue('area_id')">
+                            <option value="">Seleccionar cargo</option>
+                            <option *ngFor="let cargo of cargosFiltrados || []" [value]="cargo.id">
+                                {{ cargo.nombre }}
+                            </option>
+                        </select>
+                        <div *ngIf="hasFieldError('cargo_id')" class="field-error">
+                            {{ getFieldError('cargo_id') }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="sueldo_basico" class="form-label required">Sueldo Básico</label>
+                        <div class="input-group">
+                            <span class="input-prefix">S/.</span>
+                            <input id="sueldo_basico" type="number" class="form-control"
+                                [class.error]="hasFieldError('sueldo_basico')" formControlName="sueldo_basico"
+                                placeholder="2500.00" min="0" step="0.01">
+                        </div>
+                        <div *ngIf="hasFieldError('sueldo_basico')" class="field-error">
+                            {{ getFieldError('sueldo_basico') }}
+                        </div>
+                    </div>
+
+                    <!-- NUEVOS CAMPOS -->
+                    <div class="form-group">
+                        <label for="tipo_contrato" class="form-label required">Tipo de Contrato</label>
+                        <select id="tipo_contrato" class="form-control" [class.error]="hasFieldError('tipo_contrato')"
+                            formControlName="tipo_contrato">
+                            <option value="indefinido">Indefinido</option>
+                            <option value="plazo_fijo">Plazo Fijo</option>
+                            <option value="temporal">Temporal</option>
+                            <option value="practicas">Prácticas</option>
+                        </select>
+                        <div *ngIf="hasFieldError('tipo_contrato')" class="field-error">
+                            {{ getFieldError('tipo_contrato') }}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="fecha_fin" class="form-label"
+                            [class.required]="getControlValue('tipo_contrato') === 'plazo_fijo' || getControlValue('tipo_contrato') === 'temporal'">
+                            Fecha Fin del Contrato
+                        </label>
+                        <input id="fecha_fin" type="date" class="form-control"
+                            [class.error]="hasFieldError('fecha_fin')" formControlName="fecha_fin"
+                            [disabled]="getControlValue('tipo_contrato') === 'indefinido'">
+                        <div *ngIf="hasFieldError('fecha_fin')" class="field-error">
+                            {{ getFieldError('fecha_fin') }}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tipo_jornada" class="form-label">Tipo de Jornada</label>
+                        <select id="tipo_jornada" class="form-control" formControlName="tipo_jornada">
+                            <option value="tiempo_completo">Tiempo Completo</option>
+                            <option value="medio_tiempo">Medio Tiempo</option>
+                            <option value="por_horas">Por Horas</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="supervisor_directo_id" class="form-label">Supervisor Directo</label>
+                        <select id="supervisor_directo_id" class="form-control" formControlName="supervisor_directo_id">
+                            <option value="5">Sin supervisor</option>
+                            <option *ngFor="let supervisor of supervisores" [value]="supervisor.id">
+                                {{ supervisor.nombres }} {{ supervisor.apellido_paterno }}
+                            </option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Beneficios -->
+                <div class="form-section">
+                    <h4 class="subsection-title">Beneficios</h4>
+                    <div class="checkbox-group">
+                        <label class="checkbox-item">
+                            <input type="checkbox" formControlName="essalud">
+                            <span class="checkbox-label">EsSalud</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" formControlName="afp">
+                            <span class="checkbox-label">AFP</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" formControlName="snp">
+                            <span class="checkbox-label">SNP</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" formControlName="seguro_vida">
+                            <span class="checkbox-label">Seguro de Vida</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Información de Contacto -->
+            <div class="form-section">
+                <h3 class="section-title">
+                    <i class="icon-phone"></i>
+                    Información de Contacto
+                </h3>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="telefono_principal" class="form-label">Teléfono Principal</label>
+                        <input id="telefono_principal" type="tel" class="form-control"
+                            formControlName="telefono_principal" placeholder="987654321">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="telefono_secundario" class="form-label">Teléfono Secundario</label>
+                        <input id="telefono_secundario" type="tel" class="form-control"
+                            formControlName="telefono_secundario" placeholder="012345678">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="correo_electronico" class="form-label">Email Corporativo</label>
+                        <input id="correo_electronico" type="email" class="form-control"
+                            [class.error]="hasFieldError('correo_electronico')" formControlName="correo_electronico"
+                            placeholder="juan.perez@empresa.com">
+                        <div *ngIf="hasFieldError('correo_electronico')" class="field-error">
+                            {{ getFieldError('correo_electronico') }}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="correo_personal" class="form-label">Email Personal</label>
+                        <input id="correo_personal" type="email" class="form-control"
+                            [class.error]="hasFieldError('correo_personal')" formControlName="correo_personal"
+                            placeholder="juan.perez@gmail.com">
+                        <div *ngIf="hasFieldError('correo_personal')" class="field-error">
+                            {{ getFieldError('correo_personal') }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contacto de Emergencia -->
+            <div class="form-section">
+                <h3 class="section-title">
+                    <i class="icon-alert-circle"></i>
+                    Contacto de Emergencia
+                </h3>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="contacto_emergencia_nombre" class="form-label">Nombre Completo</label>
+                        <input id="contacto_emergencia_nombre" type="text" class="form-control"
+                            formControlName="contacto_emergencia_nombre" placeholder="María Pérez">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="contacto_emergencia_relacion" class="form-label">Relación</label>
+                        <input id="contacto_emergencia_relacion" type="text" class="form-control"
+                            formControlName="contacto_emergencia_relacion" placeholder="Esposa, Madre, Hermano...">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="contacto_emergencia_telefono" class="form-label">Teléfono</label>
+                        <input id="contacto_emergencia_telefono" type="tel" class="form-control"
+                            formControlName="contacto_emergencia_telefono" placeholder="987654321">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="contacto_emergencia_correo" class="form-label">Email</label>
+                        <input id="contacto_emergencia_correo" type="email" class="form-control"
+                            [class.error]="hasFieldError('contacto_emergencia_correo')"
+                            formControlName="contacto_emergencia_correo" placeholder="maria.perez@gmail.com">
+                        <div *ngIf="hasFieldError('contacto_emergencia_correo')" class="field-error">
+                            {{ getFieldError('contacto_emergencia_correo') }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" (click)="closeModal()" [disabled]="saving">
+                Cancelar
+            </button>
+            <button type="button" class="btn btn-primary" (click)="onSave()"
+                [disabled]="saving || trabajadorForm!.invalid">
+                <span *ngIf="saving" class="spinner-sm"></span>
+                {{ saving ? 'Guardando...' : (modalMode === 'create' ? 'Crear Trabajador' : 'Actualizar Trabajador') }}
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Detalles -->
+<div class="modal-overlay" [class.show]="showDetailModal" (click)="closeDetailModal()">
+    <div class="modal-container modal-large" (click)="$event.stopPropagation()" *ngIf="selectedTrabajador">
+        <div class="modal-header">
+            <h2>{{ selectedTrabajador.nombre_completo }}</h2>
+            <button type="button" class="btn-close" (click)="closeDetailModal()">
+                <i class="icon-x"></i>
+            </button>
+        </div>
+
+        <div class="modal-body details-modal">
+            <div class="worker-summary">
+                <div class="worker-avatar">
+                    <i class="icon-user"></i>
+                </div>
+                <div class="worker-info">
+                    <h3>{{ selectedTrabajador.nombre_completo }}</h3>
+                    <p class="worker-position">{{ selectedTrabajador.cargo_nombre }} - {{ selectedTrabajador.area_nombre
+                        }}</p>
+                    <div class="worker-badges">
+                        <span class="status-badge" [class.status-active]="selectedTrabajador.estado === 'activo'"
+                            [class.status-inactive]="selectedTrabajador.estado === 'inactivo'">
+                            {{ selectedTrabajador.estado === 'activo' ? 'Activo' : 'Inactivo' }}
+                        </span>
+                        <span class="info-badge" *ngIf="selectedTrabajador.tiempo_servicio">
+                            {{ selectedTrabajador.tiempo_servicio }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="details-grid">
+                <!-- Información Personal -->
+                <div class="detail-section">
+                    <h4><i class="icon-user"></i> Información Personal</h4>
+                    <div class="detail-items">
+                        <div class="detail-item">
+                            <label>DNI:</label>
+                            <span>{{ selectedTrabajador.dni }}</span>
+                        </div>
+                        <div class="detail-item" *ngIf="selectedTrabajador.fecha_nacimiento">
+                            <label>Fecha de Nacimiento:</label>
+                            <span>{{ selectedTrabajador.fecha_nacimiento | date:'dd/MM/yyyy' }}</span>
+                        </div>
+                        <div class="detail-item" *ngIf="selectedTrabajador.genero">
+                            <label>Género:</label>
+                            <span>{{ selectedTrabajador.genero | titlecase }}</span>
+                        </div>
+                        <div class="detail-item" *ngIf="selectedTrabajador.estado_civil">
+                            <label>Estado Civil:</label>
+                            <span>{{ selectedTrabajador.estado_civil | titlecase }}</span>
+                        </div>
+                        <div class="detail-item" *ngIf="selectedTrabajador.nacionalidad">
+                            <label>Nacionalidad:</label>
+                            <span>{{ selectedTrabajador.nacionalidad }}</span>
+                        </div>
+                        <div class="detail-item" *ngIf="selectedTrabajador.direccion">
+                            <label>Dirección:</label>
+                            <span>{{ selectedTrabajador.direccion }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información Laboral -->
+                <div class="detail-section">
+                    <h4><i class="icon-briefcase"></i> Información Laboral</h4>
+                    <div class="detail-items">
+                        <div class="detail-item">
+                            <label>Fecha de Ingreso:</label>
+                            <span>{{ selectedTrabajador.fecha_ingreso | date:'dd/MM/yyyy' }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Área:</label>
+                            <span>{{ selectedTrabajador.area_nombre }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Cargo:</label>
+                            <span>{{ selectedTrabajador.cargo_nombre }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Sueldo Básico:</label>
+                            <span class="currency">S/. {{ selectedTrabajador.sueldo_basico | number:'1.2-2' }}</span>
+                        </div>
+                        <div class="detail-item" *ngIf="selectedTrabajador.tipo_jornada">
+                            <label>Tipo de Jornada:</label>
+                            <span>{{ selectedTrabajador.tipo_jornada | titlecase }}</span>
+                        </div>
+                        <div class="detail-item" *ngIf="selectedTrabajador.supervisor_nombre">
+                            <label>Supervisor:</label>
+                            <span>{{ selectedTrabajador.supervisor_nombre }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información de Contacto -->
+                <div class="detail-section">
+                    <h4><i class="icon-phone"></i> Contacto</h4>
+                    <div class="detail-items">
+                        <div class="detail-item" *ngIf="selectedTrabajador.telefono_principal">
+                            <label>Teléfono Principal:</label>
+                            <span>{{ selectedTrabajador.telefono_principal }}</span>
+                        </div>
+                        <div class="detail-item" *ngIf="selectedTrabajador.telefono_secundario">
+                            <label>Teléfono Secundario:</label>
+                            <span>{{ selectedTrabajador.telefono_secundario }}</span>
+                        </div>
+                        <div class="detail-item" *ngIf="selectedTrabajador.correo_electronico">
+                            <label>Email Corporativo:</label>
+                            <span>{{ selectedTrabajador.correo_electronico }}</span>
+                        </div>
+                        <div class="detail-item" *ngIf="selectedTrabajador.correo_personal">
+                            <label>Email Personal:</label>
+                            <span>{{ selectedTrabajador.correo_personal }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Beneficios -->
+                <div class="detail-section">
+                    <h4><i class="icon-shield"></i> Beneficios</h4>
+                    <div class="benefit-badges">
+                        <span class="benefit-badge" [class.active]="selectedTrabajador.essalud">
+                            <i class="icon-check"></i> EsSalud
+                        </span>
+                        <span class="benefit-badge" [class.active]="selectedTrabajador.afp">
+                            <i class="icon-check"></i> AFP
+                        </span>
+                        <span class="benefit-badge" [class.active]="selectedTrabajador.snp">
+                            <i class="icon-check"></i> SNP
+                        </span>
+                        <span class="benefit-badge" [class.active]="selectedTrabajador.seguro_vida">
+                            <i class="icon-check"></i> Seguro de Vida
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Contacto de Emergencia -->
+                <div class="detail-section" *ngIf="selectedTrabajador.contacto_emergencia_nombre">
+                    <h4><i class="icon-alert-circle"></i> Contacto de Emergencia</h4>
+                    <div class="detail-items">
+                        <div class="detail-item">
+                            <label>Nombre:</label>
+                            <span>{{ selectedTrabajador.contacto_emergencia_nombre }}</span>
+                        </div>
+                        <div class="detail-item" *ngIf="selectedTrabajador.contacto_emergencia_relacion">
+                            <label>Relación:</label>
+                            <span>{{ selectedTrabajador.contacto_emergencia_relacion }}</span>
+                        </div>
+                        <div class="detail-item" *ngIf="selectedTrabajador.contacto_emergencia_telefono">
+                            <label>Teléfono:</label>
+                            <span>{{ selectedTrabajador.contacto_emergencia_telefono }}</span>
+                        </div>
+                        <div class="detail-item" *ngIf="selectedTrabajador.contacto_emergencia_correo">
+                            <label>Email:</label>
+                            <span>{{ selectedTrabajador.contacto_emergencia_correo }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contratos -->
+                <div class="detail-section"
+                    *ngIf="selectedTrabajador.contratos && selectedTrabajador.contratos.length > 0">
+                    <h4><i class="icon-file-text"></i> Historial de Contratos</h4>
+                    <div class="contracts-list">
+                        <div *ngFor="let contrato of selectedTrabajador.contratos" class="contract-item"
+                            [class.active]="contrato.estado === 'activo'">
+                            <div class="contract-header">
+                                <span class="contract-type">{{ contrato.tipo_contrato }}</span>
+                                <span class="contract-status" [class]="'status-' + contrato.estado">
+                                    {{ contrato.estado }}
+                                </span>
+                            </div>
+                            <div class="contract-details">
+                                <span>{{ contrato.fecha_inicio | date:'dd/MM/yyyy' }}</span>
+                                <span *ngIf="contrato.fecha_fin"> - {{ contrato.fecha_fin | date:'dd/MM/yyyy' }}</span>
+                                <span class="contract-salary">S/. {{ contrato.sueldo | number:'1.2-2' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" (click)="closeDetailModal()">
+                Cerrar
+            </button>
+            <button type="button" class="btn btn-primary" (click)="openEditModal(selectedTrabajador)">
+                <i class="icon-edit"></i>
+                Editar Trabajador
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Importación -->
+<div class="modal-overlay" [class.show]="showImportModal" (click)="closeImportModal()">
+    <div class="modal-container" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+            <h2>Importar Trabajadores desde CSV</h2>
+            <button type="button" class="btn-close" (click)="closeImportModal()">
+                <i class="icon-x"></i>
+            </button>
+        </div>
+
+        <div class="modal-body">
+            <div *ngIf="!importResults" class="import-form">
+                <div class="import-instructions">
+                    <h4>Instrucciones para importar</h4>
+                    <ul>
+                        <li>El archivo debe estar en formato CSV</li>
+                        <li>La primera fila debe contener los encabezados</li>
+                        <li>Los campos obligatorios son: DNI, nombres, apellido paterno, apellido materno, área, cargo y
+                            sueldo básico</li>
+                        <li>Puedes descargar la plantilla para ver el formato correcto</li>
+                    </ul>
+                </div>
+
+                <div class="file-upload-area">
+                    <input type="file" id="csvFile" accept=".csv" (change)="onFileSelected($event)" class="file-input">
+                    <label for="csvFile" class="file-upload-label">
+                        <i class="icon-upload"></i>
+                        <span *ngIf="!selectedFile">Seleccionar archivo CSV</span>
+                        <span *ngIf="selectedFile">{{ selectedFile.name }}</span>
+                    </label>
+                </div>
+
+                <div class="import-actions">
+                    <button type="button" class="btn btn-outline" (click)="descargarPlantilla()">
+                        <i class="icon-download"></i>
+                        Descargar Plantilla
+                    </button>
+
+                    <button type="button" class="btn btn-primary" (click)="importarCSV()"
+                        [disabled]="!selectedFile || importing">
+                        <span *ngIf="importing" class="spinner-sm"></span>
+                        {{ importing ? 'Importando...' : 'Importar Trabajadores' }}
+                    </button>
+                </div>
+            </div>
+
+            <!-- Resultados de importación -->
+            <div *ngIf="importResults" class="import-results">
+                <div class="results-summary">
+                    <h4>Resultados de la Importación</h4>
+                    <div class="summary-stats">
+                        <div class="stat-item success">
+                            <i class="icon-check-circle"></i>
+                            <span>{{ importResults.summary.successful }} exitosos</span>
+                        </div>
+                        <div class="stat-item error" *ngIf="importResults.summary.failed > 0">
+                            <i class="icon-x-circle"></i>
+                            <span>{{ importResults.summary.failed }} con errores</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trabajadores importados exitosamente -->
+                <div *ngIf="importResults.imported.length > 0" class="imported-list">
+                    <h5>Trabajadores Importados</h5>
+                    <div class="imported-items">
+                        <div *ngFor="let item of importResults.imported" class="imported-item">
+                            <i class="icon-check text-success"></i>
+                            <span>{{ item.nombre }} (DNI: {{ item.dni }})</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Errores -->
+                <div *ngIf="importResults.errors.length > 0" class="errors-list">
+                    <h5>Errores Encontrados</h5>
+                    <div class="error-items">
+                        <div *ngFor="let error of importResults.errors" class="error-item">
+                            <i class="icon-x text-error"></i>
+                            <span>Línea {{ error.line }}: {{ error.message }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DEBUG: Agregar después del título del modal -->
+        <div style="background: #f0f0f0; padding: 10px; margin: 10px; font-size: 11px;">
+            <strong>DEBUG - Valores del formulario:</strong><br>
+            Area ID: {{ getControlValue('area_id') }}<br>
+            Cargo ID: {{ getControlValue('cargo_id') }}<br>
+            Cargos disponibles: {{ cargosFiltrados?.length }}<br>
+
+            <details>
+                <summary>Ver trabajador seleccionado</summary>
+                <pre>{{ selectedTrabajador | json }}</pre>
+            </details>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" (click)="closeImportModal()">
+                {{ importResults ? 'Cerrar' : 'Cancelar' }}
+            </button>
+            <button *ngIf="importResults" type="button" class="btn btn-primary" (click)="closeImportModal()">
+                Finalizar
+            </button>
+        </div>
+    </div>
+</div>

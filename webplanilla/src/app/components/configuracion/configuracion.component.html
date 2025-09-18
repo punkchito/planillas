@@ -1,0 +1,580 @@
+<!-- src/app/components/configuracion/configuracion.component.html -->
+<div class="configuracion-container">
+  
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <div class="breadcrumb">
+        <a (click)="goToDashboard()">🏠 Dashboard</a>
+        <span>></span>
+        <span>Configuración del Sistema</span>
+      </div>
+      <div>
+        <a class="btn btn-outline" (click)="logout()">Salir</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" *ngIf="isLoading">
+    <div class="loading-spinner">
+      <div class="spinner"></div>
+      <p>Cargando...</p>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    
+    <!-- Page Header -->
+    <section class="page-header">
+      <div class="page-title">
+        <h1>⚙️ Configuración del Sistema</h1>
+        <p>Administra la configuración general y parámetros del sistema de planillas</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-outline" (click)="exportCSV()">📤 Exportar</button>
+        <button class="btn btn-success" (click)="saveAllConfig()">💾 Guardar Cambios</button>
+      </div>
+    </section>
+
+    <div class="config-layout">
+      
+      <!-- Sidebar -->
+      <aside class="config-sidebar">
+        <h3 class="sidebar-title">Configuración</h3>
+        <ul class="config-nav">
+          <li class="nav-item">
+            <a href="#" 
+               class="nav-link" 
+               [class.active]="currentSection === 'general'"
+               (click)="showSection('general')">
+              🏢 General
+            </a>
+          </li>
+          <!-- <li class="nav-item">
+            <a href="#" 
+               class="nav-link" 
+               [class.active]="currentSection === 'usuarios'"
+               (click)="showSection('usuarios')">
+              👥 Usuarios
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="#" 
+               class="nav-link" 
+               [class.active]="currentSection === 'departamentos'"
+               (click)="showSection('departamentos')">
+              🏢 Departamentos
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="#" 
+               class="nav-link" 
+               [class.active]="currentSection === 'planillas'"
+               (click)="showSection('planillas')">
+              💰 Planillas
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="#" 
+               class="nav-link" 
+               [class.active]="currentSection === 'notificaciones'"
+               (click)="showSection('notificaciones')">
+              📧 Notificaciones
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="#" 
+               class="nav-link" 
+               [class.active]="currentSection === 'logs'"
+               (click)="showSection('logs')">
+              📋 Logs y Auditoría
+            </a>
+          </li> -->
+        </ul>
+      </aside>
+
+      <!-- Content Area -->
+      <div class="config-content">
+        
+        <!-- Configuración General -->
+        <div class="config-section" [class.active]="currentSection === 'general'">
+          <div class="content-header">
+            <h2 class="content-title">Configuración General</h2>
+            <p class="content-description">Configura los parámetros básicos de la institución y el sistema</p>
+          </div>
+          
+          <div class="content-body">
+            <form [formGroup]="generalForm!" (ngSubmit)="saveGeneralConfig()">
+              <div class="config-card">
+                <div class="card-header">
+                  <h3 class="card-title">Información Institucional</h3>
+                  <span class="card-status status-enabled">Activo</span>
+                </div>
+                
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label for="institution_name">Nombre de la Institución *</label>
+                    <input type="text" 
+                           id="institution_name" 
+                           formControlName="institution_name"
+                           placeholder="Instituto Tecnológico Nuevo Milenio"
+                           [class.error]="generalForm!.get('institution_name')?.invalid && generalForm!.get('institution_name')?.touched">
+                    <div class="error-message" 
+                         *ngIf="generalForm!.get('institution_name')?.errors?.['required'] && generalForm!.get('institution_name')?.touched">
+                      El nombre es requerido
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="institution_ruc">RUC *</label>
+                    <input type="text" 
+                           id="institution_ruc" 
+                           formControlName="institution_ruc"
+                           placeholder="20123456789" 
+                           maxlength="11"
+                           [class.error]="generalForm!.get('institution_ruc')?.invalid && generalForm!.get('institution_ruc')?.touched">
+                    <div class="error-message" 
+                         *ngIf="generalForm!.get('institution_ruc')?.errors?.['pattern'] && generalForm!.get('institution_ruc')?.touched">
+                      RUC debe tener 11 dígitos
+                    </div>
+                  </div>
+
+                  <div class="form-group full-width">
+                    <label for="institution_address">Dirección *</label>
+                    <input type="text" 
+                           id="institution_address" 
+                           formControlName="institution_address"
+                           placeholder="Jr. Los Andes 123, Callería, Coronel Portillo, Ucayali"
+                           [class.error]="generalForm!.get('institution_address')?.invalid && generalForm!.get('institution_address')?.touched">
+                  </div>
+
+                  <div class="form-group">
+                    <label for="institution_phone">Teléfono *</label>
+                    <input type="tel" 
+                           id="institution_phone" 
+                           formControlName="institution_phone"
+                           placeholder="061-575123">
+                  </div>
+
+                  <div class="form-group">
+                    <label for="institution_email">Email Institucional *</label>
+                    <input type="email" 
+                           id="institution_email" 
+                           formControlName="institution_email"
+                           placeholder="contacto@instituto.edu.pe">
+                  </div>
+
+                  <div class="form-group">
+                    <label for="timezone">Zona Horaria</label>
+                    <select id="timezone" formControlName="timezone">
+                      <option *ngFor="let zona of zonasHorarias" [value]="zona.value">
+                        {{zona.label}}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="currency">Moneda</label>
+                    <select id="currency" formControlName="currency">
+                      <option *ngFor="let moneda of tiposMoneda" [value]="moneda.value">
+                        {{moneda.label}}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="fiscal_year">Año Fiscal</label>
+                    <select id="fiscal_year" formControlName="fiscal_year">
+                      <option value="2024">2024</option>
+                      <option value="2025">2025</option>
+                      <option value="2026">2026</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-actions">
+                  <button type="submit" class="btn btn-primary" [disabled]="!generalForm!.valid">
+                    Guardar Configuración General
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Usuarios Section -->
+        <div class="config-section" [class.active]="currentSection === 'usuarios'">
+          <div class="content-header">
+            <h2 class="content-title">Gestión de Usuarios</h2>
+            <p class="content-description">Administra los usuarios del sistema y sus roles</p>
+          </div>
+          
+          <div class="content-body">
+            <div class="card-header">
+              <h3 class="card-title">Lista de Usuarios</h3>
+              <button class="btn btn-primary" (click)="openUserModal()">+ Nuevo Usuario</button>
+            </div>
+            
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Nombre</th>
+                  <th>Email</th>
+                  <th>Rol</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let user of users">
+                  <td>{{user.id}}</td>
+                  <td>{{user.name}}</td>
+                  <td>{{user.email}}</td>
+                  <td>{{user.role}}</td>
+                  <td>
+                    <span class="card-status" [class.status-enabled]="user.active" [class.status-disabled]="!user.active">
+                      {{user.active ? 'Activo' : 'Inactivo'}}
+                    </span>
+                  </td>
+                  <td>
+                    <button class="btn btn-sm btn-outline" (click)="openUserModal(user.id)">Editar</button>
+                    <button class="btn btn-sm" 
+                            [class.btn-warning]="user.active" 
+                            [class.btn-success]="!user.active"
+                            (click)="toggleUserStatus(user.id)">
+                      {{user.active ? 'Desactivar' : 'Activar'}}
+                    </button>
+                    <button class="btn btn-sm btn-danger" (click)="deleteUser(user.id)">Eliminar</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Departamentos Section -->
+        <div class="config-section" [class.active]="currentSection === 'departamentos'">
+          <div class="content-header">
+            <h2 class="content-title">Gestión de Departamentos</h2>
+            <p class="content-description">Configura departamentos y estructura organizacional</p>
+          </div>
+          
+          <div class="content-body">
+            <div class="card-header">
+              <h3 class="card-title">Lista de Departamentos</h3>
+              <button class="btn btn-primary" (click)="openDepartmentModal()">+ Nuevo Departamento</button>
+            </div>
+            
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Nombre</th>
+                  <th>Descripción</th>
+                  <th>Responsable</th>
+                  <th>Trabajadores</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let dept of departments">
+                  <td>{{dept.id}}</td>
+                  <td>{{dept.name}}</td>
+                  <td>{{dept.description}}</td>
+                  <td>{{dept.manager}}</td>
+                  <td>{{dept.worker_count}}</td>
+                  <td>
+                    <span class="card-status" [class.status-enabled]="dept.active" [class.status-disabled]="!dept.active">
+                      {{dept.active ? 'Activo' : 'Inactivo'}}
+                    </span>
+                  </td>
+                  <td>
+                    <button class="btn btn-sm btn-outline" (click)="openDepartmentModal(dept.id)">Editar</button>
+                    <button class="btn btn-sm" 
+                            [class.btn-warning]="dept.active" 
+                            [class.btn-success]="!dept.active"
+                            (click)="toggleDepartmentStatus(dept.id)">
+                      {{dept.active ? 'Desactivar' : 'Activar'}}
+                    </button>
+                    <button class="btn btn-sm btn-danger" (click)="deleteDepartment(dept.id)">Eliminar</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Planillas Section -->
+        <div class="config-section" [class.active]="currentSection === 'planillas'">
+          <div class="content-header">
+            <h2 class="content-title">Configuración de Planillas</h2>
+            <p class="content-description">Parámetros para el cálculo y procesamiento de planillas</p>
+          </div>
+          
+          <div class="content-body">
+            <form [formGroup]="planillasForm!" (ngSubmit)="savePlanillasConfig()">
+              <div class="config-card">
+                <div class="card-header">
+                  <h3 class="card-title">Períodos de Planilla</h3>
+                  <span class="card-status status-enabled">Activo</span>
+                </div>
+                
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label for="payroll_period">Frecuencia de Pago</label>
+                    <select id="payroll_period" formControlName="payroll_period">
+                      <option *ngFor="let periodo of tiposPeriodo" [value]="periodo.value">
+                        {{periodo.label}}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="cutoff_day">Día de Corte</label>
+                    <input type="number" id="cutoff_day" formControlName="cutoff_day" min="1" max="31">
+                    <small>Último día del período de cálculo</small>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="payment_day">Día de Pago</label>
+                    <input type="number" id="payment_day" formControlName="payment_day" min="1" max="31">
+                    <small>Día del mes siguiente para el pago</small>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="rounding_method">Método de Redondeo</label>
+                    <select id="rounding_method" formControlName="rounding_method">
+                      <option *ngFor="let metodo of metodosRedondeo" [value]="metodo.value">
+                        {{metodo.label}}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="decimal_places">Decimales en Cálculos</label>
+                    <select id="decimal_places" formControlName="decimal_places">
+                      <option value="2">2 decimales</option>
+                      <option value="3">3 decimales</option>
+                      <option value="4">4 decimales</option>
+                    </select>
+                  </div>
+
+                  <div class="form-group">
+                    <label>
+                      <input type="checkbox" formControlName="auto_process">
+                      Procesar automáticamente al cierre del período
+                    </label>
+                  </div>
+                </div>
+
+                <div class="form-actions">
+                  <button type="submit" class="btn btn-primary" [disabled]="!planillasForm!.valid">
+                    Guardar Configuración de Planillas
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Notificaciones Section -->
+        <div class="config-section" [class.active]="currentSection === 'notificaciones'">
+          <div class="content-header">
+            <h2 class="content-title">Configuración de Notificaciones</h2>
+            <p class="content-description">Configura el sistema de notificaciones por email</p>
+          </div>
+          
+          <div class="content-body">
+            <form [formGroup]="notificacionesForm!" (ngSubmit)="saveNotificationsConfig()">
+              <div class="config-card">
+                <div class="card-header">
+                  <h3 class="card-title">Configuración SMTP</h3>
+                  <span class="card-status status-enabled">Activo</span>
+                </div>
+                
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label for="smtp_server">Servidor SMTP</label>
+                    <input type="text" id="smtp_server" formControlName="smtp_server">
+                  </div>
+
+                  <div class="form-group">
+                    <label for="smtp_port">Puerto SMTP</label>
+                    <input type="number" id="smtp_port" formControlName="smtp_port">
+                  </div>
+
+                  <div class="form-group">
+                    <label for="smtp_user">Usuario SMTP</label>
+                    <input type="email" id="smtp_user" formControlName="smtp_user">
+                  </div>
+
+                  <div class="form-group">
+                    <label for="smtp_password">Contraseña SMTP</label>
+                    <input type="password" id="smtp_password" formControlName="smtp_password">
+                  </div>
+                </div>
+                
+                <h4 style="margin: 1.5rem 0 1rem 0;">Eventos de Notificación</h4>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>
+                      <input type="checkbox" formControlName="payroll_processed">
+                      Planilla procesada
+                    </label>
+                  </div>
+
+                  <div class="form-group">
+                    <label>
+                      <input type="checkbox" formControlName="contracts_expiring">
+                      Contratos por vencer (30 días)
+                    </label>
+                  </div>
+
+                  <div class="form-group">
+                    <label>
+                      <input type="checkbox" formControlName="new_requests">
+                      Nuevas solicitudes
+                    </label>
+                  </div>
+
+                  <div class="form-group">
+                    <label>
+                      <input type="checkbox" formControlName="system_errors">
+                      Errores del sistema
+                    </label>
+                  </div>
+                </div>
+
+                <div class="form-actions">
+                  <button type="submit" class="btn btn-primary" [disabled]="!notificacionesForm!.valid">
+                    Guardar Configuración de Notificaciones
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Logs Section -->
+        <div class="config-section" [class.active]="currentSection === 'logs'">
+          <div class="content-header">
+            <h2 class="content-title">Logs y Auditoría</h2>
+            <p class="content-description">Registro de eventos y auditoría del sistema</p>
+          </div>
+          
+          <div class="content-body">
+            <div class="config-card">
+              <div class="card-header">
+                <h3 class="card-title">Logs del Sistema</h3>
+                <div style="display: flex; gap: 1rem;">
+                  <button class="btn btn-sm btn-outline" (click)="refreshLogs()">Actualizar</button>
+                  <button class="btn btn-sm btn-danger" (click)="clearLogs()">Limpiar</button>
+                </div>
+              </div>
+              
+              <div class="logs-container">
+                <div class="log-entry" *ngFor="let log of logs">
+                  <span class="log-timestamp">{{log.created_at | date:'dd/MM/yyyy HH:mm:ss'}}</span>
+                  <span class="log-level log-{{log.action}}">[{{log.action.toUpperCase()}}]</span>
+                  <span>{{log.description}}</span>
+                  <span *ngIf="log.user_name" class="log-user">- {{log.user_name}}</span>
+                </div>
+                
+                <div *ngIf="logs.length === 0" class="no-logs">
+                  <p>No hay logs disponibles</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal -->
+<div class="modal" [class.show]="showModal" (click)="closeModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3 class="modal-title">
+        {{currentEditType === 'user' ? 
+          (currentEditId ? 'Editar Usuario' : 'Nuevo Usuario') : 
+          (currentEditId ? 'Editar Departamento' : 'Nuevo Departamento')}}
+      </h3>
+      <span class="close" (click)="closeModal()">&times;</span>
+    </div>
+    
+    <div class="modal-body">
+      <!-- Modal Usuario -->
+      <form *ngIf="currentEditType === 'user'" [formGroup]="userForm!">
+        <div class="form-group">
+          <label for="userName">Nombre *</label>
+          <input type="text" id="userName" formControlName="name" required>
+        </div>
+        <div class="form-group">
+          <label for="userEmail">Email *</label>
+          <input type="email" id="userEmail" formControlName="email" required>
+        </div>
+        <div class="form-group">
+          <label for="userRole">Rol *</label>
+          <select id="userRole" formControlName="role" required>
+            <option value="">Seleccionar rol</option>
+            <option *ngFor="let role of availableRoles" [value]="role.id">
+              {{role.name}}
+            </option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="userDni">DNI</label>
+          <input type="text" id="userDni" formControlName="dni" maxlength="8">
+        </div>
+        <div class="form-group">
+          <label for="userPhone">Teléfono</label>
+          <input type="text" id="userPhone" formControlName="phone">
+        </div>
+        <div class="form-group" *ngIf="!currentEditId">
+          <label for="userPassword">Contraseña</label>
+          <input type="password" id="userPassword" formControlName="password">
+          <small>Dejar vacío para generar contraseña automática</small>
+        </div>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" formControlName="active">
+            Usuario activo
+          </label>
+        </div>
+      </form>
+
+      <!-- Modal Departamento -->
+      <form *ngIf="currentEditType === 'department'" [formGroup]="departmentForm!">
+        <div class="form-group">
+          <label for="deptName">Nombre *</label>
+          <input type="text" id="deptName" formControlName="name" required>
+        </div>
+        <div class="form-group">
+          <label for="deptDescription">Descripción</label>
+          <textarea id="deptDescription" formControlName="description" rows="3"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="deptManager">Responsable</label>
+          <input type="text" id="deptManager" formControlName="manager">
+        </div>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" formControlName="active">
+            Departamento activo
+          </label>
+        </div>
+      </form>
+    </div>
+    
+    <div class="modal-footer">
+      <button class="btn btn-outline" (click)="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" (click)="saveModalData()">Guardar</button>
+    </div>
+  </div>
+</div>

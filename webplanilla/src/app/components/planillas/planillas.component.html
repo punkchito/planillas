@@ -1,0 +1,526 @@
+<!-- src/app/components/planillas/planillas.component.html -->
+<div class="planillas-container">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <div class="breadcrumb">
+        <a (click)="goToDashboard()">🏠 Dashboard</a>
+        <span>></span>
+        <span>Procesamiento de Planillas</span>
+      </div>
+      <div>
+        <a class="btn btn-outline" (click)="goToDashboard()">Salir</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" *ngIf="isLoading">
+    <div class="loading-spinner">
+      <div class="spinner"></div>
+      <p>Cargando...</p>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    
+    <!-- Page Header -->
+    <section class="page-header">
+      <div class="page-title">
+        <h1>💰 Procesamiento de Planillas</h1>
+        <p>Gestiona el cálculo y procesamiento de planillas de pago</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-outline" (click)="refreshData()" [disabled]="isLoading">
+          🔄 Actualizar
+        </button>
+      </div>
+    </section>
+
+    <!-- Tabs Container -->
+    <div class="tabs-container">
+      
+      <!-- Tabs Header -->
+      <div class="tabs-header">
+        <button 
+          class="tab-button"
+          [class.active]="currentTab === 'procesar'"
+          (click)="showTab('procesar')">
+          ⚙️ Procesar Planilla
+        </button>
+        <button 
+          class="tab-button"
+          [class.active]="currentTab === 'historial'"
+          (click)="showTab('historial')">
+          📋 Historial ({{planillas.length}})
+        </button>
+        <button 
+          class="tab-button"
+          [class.active]="currentTab === 'estadisticas'"
+          (click)="showTab('estadisticas')">
+          📊 Estadísticas
+        </button>
+      </div>
+
+      <!-- Tab: Procesar Planilla -->
+      <div class="tab-content" [class.active]="currentTab === 'procesar'">
+        
+        <!-- Configuración -->
+        <form [formGroup]="procesarForm" class="config-section">
+          <h3>⚙️ Configuración de Planilla</h3>
+          
+          <div class="config-grid">
+            <div class="form-group">
+              <label for="periodo">Período de Pago *</label>
+              <input 
+                type="month" 
+                id="periodo" 
+                formControlName="periodo"
+                class="form-control"
+                [class.error]="procesarForm.get('periodo')?.invalid && procesarForm.get('periodo')?.touched">
+              <div class="error-message" *ngIf="procesarForm.get('periodo')?.invalid && procesarForm.get('periodo')?.touched">
+                El período es requerido
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="tipo_planilla">Tipo de Planilla *</label>
+              <select 
+                id="tipo_planilla" 
+                formControlName="tipo_planilla" 
+                class="form-control"
+                [class.error]="procesarForm.get('tipo_planilla')?.invalid && procesarForm.get('tipo_planilla')?.touched">
+                <option *ngFor="let tipo of tiposPlanilla" [value]="tipo.value">
+                  {{tipo.label}}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="tipo_personal">Tipo de Personal *</label>
+              <select 
+                id="tipo_personal" 
+                formControlName="tipo_personal" 
+                class="form-control">
+                <option *ngFor="let tipo of tiposPersonal" [value]="tipo.value">
+                  {{tipo.label}}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <button 
+                type="button" 
+                class="btn btn-primary" 
+                (click)="calcularPlanilla()"
+                [disabled]="isCalculating || procesarForm.invalid">
+                <span *ngIf="isCalculating" class="spinner-sm"></span>
+                {{isCalculating ? 'Calculando...' : '🧮 Calcular Planilla'}}
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group full-width">
+            <label for="observaciones">Observaciones</label>
+            <textarea 
+              id="observaciones" 
+              formControlName="observaciones" 
+              class="form-control" 
+              rows="3"
+              placeholder="Observaciones adicionales para esta planilla...">
+            </textarea>
+          </div>
+        </form>
+
+        <!-- Estado de Cálculo -->
+        <div class="status-section" *ngIf="planillaCalculada">
+          <div class="status-indicator status-calculated">
+            ✅ Planilla calculada - Lista para procesar
+          </div>
+        </div>
+
+        <div class="status-section" *ngIf="!planillaCalculada && !isCalculating">
+          <div class="status-indicator status-draft">
+            📝 Sin calcular
+          </div>
+        </div>
+
+        <!-- Resumen de Cálculo -->
+        <div class="summary-section" *ngIf="planillaCalculada">
+          <h3>📊 Resumen de Cálculo</h3>
+          
+          <div class="summary-grid">
+            <div class="summary-card workers">
+              <div class="summary-icon">👥</div>
+              <div class="summary-content">
+                <div class="summary-value">{{planillaCalculada.planilla.total_trabajadores}}</div>
+                <div class="summary-label">Total Trabajadores</div>
+              </div>
+            </div>
+            
+            <div class="summary-card gross">
+              <div class="summary-icon">💰</div>
+              <div class="summary-content">
+                <div class="summary-value">{{formatCurrency(planillaCalculada.planilla.total_ingresos)}}</div>
+                <div class="summary-label">Total Ingresos</div>
+              </div>
+            </div>
+            
+            <div class="summary-card discounts">
+              <div class="summary-icon">📉</div>
+              <div class="summary-content">
+                <div class="summary-value">{{formatCurrency(planillaCalculada.planilla.total_descuentos)}}</div>
+                <div class="summary-label">Total Descuentos</div>
+              </div>
+            </div>
+            
+            <div class="summary-card net">
+              <div class="summary-icon">💵</div>
+              <div class="summary-content">
+                <div class="summary-value">{{formatCurrency(planillaCalculada.planilla.total_neto)}}</div>
+                <div class="summary-label">Total Neto a Pagar</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Acciones de Planilla Calculada -->
+          <div class="summary-actions">
+            <button class="btn btn-outline" (click)="showDetailModal = true">
+              📋 Ver Detalle
+            </button>
+            <button class="btn btn-warning" (click)="exportarPlanilla(planillaCalculada.planilla)">
+              📤 Exportar Excel
+            </button>
+            <button 
+              class="btn btn-success" 
+              (click)="procesarPlanilla()"
+              [disabled]="isProcessing">
+              <span *ngIf="isProcessing" class="spinner-sm"></span>
+              {{isProcessing ? 'Procesando...' : '✅ Procesar Planilla'}}
+            </button>
+          </div>
+        </div>
+
+        <!-- Detalle de Planilla Calculada -->
+        <div class="table-container" *ngIf="planillaCalculada && showDetailModal">
+          <div class="table-header">
+            <h3>📋 Detalle de Planilla</h3>
+            <button class="btn btn-outline" (click)="showDetailModal = false">✖ Cerrar</button>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>DNI</th>
+                  <th>Trabajador</th>
+                  <th>Cargo</th>
+                  <th>Sueldo Básico</th>
+                  <th>Total Ingresos</th>
+                  <th>Total Descuentos</th>
+                  <th>Neto a Pagar</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let detalle of planillaCalculada.detalle; trackBy: trackByDetalle">
+                  <td class="dni-cell">{{detalle.dni}}</td>
+                  <td class="name-cell">{{detalle.nombre_completo}}</td>
+                  <td>{{detalle.cargo}}</td>
+                  <td class="amount positive">{{formatCurrency(detalle.sueldo_basico)}}</td>
+                  <td class="amount positive">{{formatCurrency(detalle.total_ingresos)}}</td>
+                  <td class="amount negative">{{formatCurrency(detalle.total_descuentos)}}</td>
+                  <td class="amount positive strong">{{formatCurrency(detalle.neto_pagar)}}</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr class="totals-row">
+                  <td colspan="3"><strong>TOTALES</strong></td>
+                  <td class="amount positive"><strong>{{formatCurrency(planillaCalculada.planilla.total_ingresos)}}</strong></td>
+                  <td class="amount positive"><strong>{{formatCurrency(planillaCalculada.planilla.total_ingresos)}}</strong></td>
+                  <td class="amount negative"><strong>{{formatCurrency(planillaCalculada.planilla.total_descuentos)}}</strong></td>
+                  <td class="amount positive strong"><strong>{{formatCurrency(planillaCalculada.planilla.total_neto)}}</strong></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Historial -->
+      <div class="tab-content" [class.active]="currentTab === 'historial'">
+        
+        <!-- Filtros -->
+        <form [formGroup]="filtrosForm" class="filters-section">
+          <h3>🔍 Filtros</h3>
+          <div class="filters-grid">
+            <div class="form-group">
+              <label for="filter_tipo_planilla">Tipo de Planilla</label>
+              <select id="filter_tipo_planilla" formControlName="tipo_planilla" class="form-control">
+                <option value="todos">Todos los tipos</option>
+                <option *ngFor="let tipo of tiposPlanilla" [value]="tipo.value">
+                  {{tipo.label}}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="filter_estado">Estado</label>
+              <select id="filter_estado" formControlName="estado" class="form-control">
+                <option *ngFor="let estado of estadosPlanilla" [value]="estado.value">
+                  {{estado.label}}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="desde_periodo">Desde Período</label>
+              <input 
+                type="month" 
+                id="desde_periodo" 
+                formControlName="desde_periodo" 
+                class="form-control">
+            </div>
+
+            <div class="form-group">
+              <label for="hasta_periodo">Hasta Período</label>
+              <input 
+                type="month" 
+                id="hasta_periodo" 
+                formControlName="hasta_periodo" 
+                class="form-control">
+            </div>
+          </div>
+        </form>
+
+        <!-- Lista de Planillas -->
+        <div class="table-container" *ngIf="planillas.length > 0; else noPlanillas">
+          <div class="table-header">
+            <h3>📋 Historial de Planillas</h3>
+            <div class="table-actions">
+              <span class="results-summary">{{totalItems}} planillas encontradas</span>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Período</th>
+                  <th>Tipo</th>
+                  <th>Trabajadores</th>
+                  <th>Total Bruto</th>
+                  <th>Total Neto</th>
+                  <th>Estado</th>
+                  <th>Fecha Proceso</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let planilla of planillas; trackBy: trackByPlanilla">
+                  <td class="period-cell">{{planilla.periodo}}</td>
+                  <td>{{getTipoLabel(planilla.tipo_planilla)}}</td>
+                  <td class="center">{{planilla.total_trabajadores}}</td>
+                  <td class="amount positive">{{formatCurrency(planilla.total_ingresos)}}</td>
+                  <td class="amount positive strong">{{formatCurrency(planilla.total_neto)}}</td>
+                  <td>
+                    <span class="status-badge" [class]="getStatusClass(planilla.estado)">
+                      {{getStatusLabel(planilla.estado)}}
+                    </span>
+                  </td>
+                  <td class="date-cell">{{planilla.fecha_proceso ? formatDate(planilla.fecha_proceso) : '-'}}</td>
+                  <td class="actions-cell">
+                    <div class="action-buttons">
+                      <button 
+                        class="btn-action btn-view" 
+                        (click)="viewPlanillaDetail(planilla)" 
+                        title="Ver detalle">
+                        👁️
+                      </button>
+                      <button 
+                        class="btn-action btn-export" 
+                        (click)="exportarPlanilla(planilla)" 
+                        title="Exportar"
+                        *ngIf="planilla.estado === 'procesada'">
+                        📤
+                      </button>
+                      <button 
+                        class="btn-action btn-danger" 
+                        (click)="anularPlanilla(planilla)" 
+                        title="Anular"
+                        *ngIf="planilla.estado === 'procesada'">
+                        ❌
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Paginación -->
+          <div class="pagination-container" *ngIf="totalPages > 1">
+            <div class="pagination-info">
+              <span>
+                Página {{currentPage}} de {{totalPages}}
+                ({{totalItems}} registros total)
+              </span>
+            </div>
+
+            <nav class="pagination">
+              <button class="btn-page" [disabled]="currentPage === 1" (click)="changePage(1)">
+                ⏪
+              </button>
+
+              <button class="btn-page" [disabled]="currentPage === 1" (click)="changePage(currentPage - 1)">
+                ◀️
+              </button>
+
+              <button 
+                *ngFor="let page of getPages()" 
+                class="btn-page" 
+                [class.active]="page === currentPage"
+                (click)="changePage(page)">
+                {{page}}
+              </button>
+
+              <button class="btn-page" [disabled]="currentPage === totalPages" (click)="changePage(currentPage + 1)">
+                ▶️
+              </button>
+
+              <button class="btn-page" [disabled]="currentPage === totalPages" (click)="changePage(totalPages)">
+                ⏩
+              </button>
+            </nav>
+          </div>
+        </div>
+
+        <ng-template #noPlanillas>
+          <div class="no-data">
+            <div class="no-data-icon">📋</div>
+            <h3>No hay planillas registradas</h3>
+            <p>No se encontraron planillas que coincidan con los filtros aplicados.</p>
+            <button class="btn btn-primary" (click)="showTab('procesar')">
+              Procesar Primera Planilla
+            </button>
+          </div>
+        </ng-template>
+      </div>
+
+      <!-- Tab: Estadísticas -->
+      <div class="tab-content" [class.active]="currentTab === 'estadisticas'">
+        <div class="stats-dashboard">
+          <h3>📊 Estadísticas de Planillas</h3>
+          
+          <div class="stats-grid" *ngIf="estadisticas">
+            <div class="stat-card">
+              <div class="stat-icon">📋</div>
+              <div class="stat-content">
+                <div class="stat-number">{{estadisticas.total_planillas || 0}}</div>
+                <div class="stat-label">Total Planillas</div>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon">✅</div>
+              <div class="stat-content">
+                <div class="stat-number">{{estadisticas.planillas_procesadas || 0}}</div>
+                <div class="stat-label">Procesadas</div>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon">👥</div>
+              <div class="stat-content">
+                <div class="stat-number">{{estadisticas.total_trabajadores || 0}}</div>
+                <div class="stat-label">Total Trabajadores</div>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon">💰</div>
+              <div class="stat-content">
+                <div class="stat-number">{{formatCurrency(estadisticas.total_pagado || 0)}}</div>
+                <div class="stat-label">Total Pagado</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal de Detalle de Planilla -->
+<div class="modal-overlay" [class.show]="showDetailModal && planillaSeleccionada" (click)="closeDetailModal()">
+  <div class="modal-container modal-large" (click)="$event.stopPropagation()" *ngIf="planillaSeleccionada">
+    <div class="modal-header">
+      <h2>Detalle de Planilla - {{planillaSeleccionada.periodo}}</h2>
+      <button class="btn-close" (click)="closeDetailModal()">×</button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Información General -->
+      <div class="planilla-summary">
+        <div class="summary-item">
+          <label>Período:</label>
+          <span>{{planillaSeleccionada.periodo}}</span>
+        </div>
+        <div class="summary-item">
+          <label>Tipo:</label>
+          <span>{{getTipoLabel(planillaSeleccionada.tipo_planilla)}}</span>
+        </div>
+        <div class="summary-item">
+          <label>Estado:</label>
+          <span class="status-badge" [class]="getStatusClass(planillaSeleccionada.estado)">
+            {{getStatusLabel(planillaSeleccionada.estado)}}
+          </span>
+        </div>
+        <div class="summary-item">
+          <label>Total Neto:</label>
+          <span class="amount strong">{{formatCurrency(planillaSeleccionada.total_neto)}}</span>
+        </div>
+      </div>
+
+      <!-- Detalle por Trabajador -->
+      <div class="table-container" *ngIf="detallePlanilla.length > 0">
+        <h4>Detalle por Trabajador</h4>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>DNI</th>
+                <th>Trabajador</th>
+                <th>Cargo</th>
+                <th>Sueldo Básico</th>
+                <th>Total Ingresos</th>
+                <th>Total Descuentos</th>
+                <th>Neto a Pagar</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let detalle of detallePlanilla; trackBy: trackByDetalle">
+                <td class="dni-cell">{{detalle.dni}}</td>
+                <td class="name-cell">{{detalle.nombre_completo}}</td>
+                <td>{{detalle.cargo}}</td>
+                <td class="amount positive">{{formatCurrency(detalle.sueldo_basico)}}</td>
+                <td class="amount positive">{{formatCurrency(detalle.total_ingresos)}}</td>
+                <td class="amount negative">{{formatCurrency(detalle.total_descuentos)}}</td>
+                <td class="amount positive strong">{{formatCurrency(detalle.neto_pagar)}}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline" (click)="closeDetailModal()">
+        Cerrar
+      </button>
+      <button class="btn btn-primary" (click)="exportarPlanilla(planillaSeleccionada)" *ngIf="planillaSeleccionada.estado === 'procesada'">
+        📤 Exportar Planilla
+      </button>
+    </div>
+  </div>
+</div>

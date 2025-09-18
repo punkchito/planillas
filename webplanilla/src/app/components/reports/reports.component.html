@@ -1,0 +1,472 @@
+<!-- src/app/components/reports/reports.component.html -->
+<div class="reports-container">
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <div class="breadcrumb">
+        <a (click)="goToDashboard()" class="breadcrumb-link">🏠 Dashboard</a>
+        <span>></span>
+        <span>Reportes y Estadísticas</span>
+      </div>
+      <div>
+        <button class="btn btn-outline" (click)="logout()">🚪 Salir</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Page Header -->
+    <section class="page-header">
+      <div class="page-title">
+        <h1>📊 Reportes y Estadísticas</h1>
+        <p>Análisis dinámico con gráficos interactivos y exportación automática</p>
+      </div>
+      <div class="page-actions">
+        <button 
+          class="btn btn-warning" 
+          (click)="exportCompleteReport()" 
+          [disabled]="loading.export">
+          <span *ngIf="loading.export" class="spinner-border spinner-border-sm me-2"></span>
+          📄 PDF Completo
+        </button>
+        <button 
+          class="btn btn-success" 
+          (click)="exportToExcel()" 
+          [disabled]="loading.export">
+          <span *ngIf="loading.export" class="spinner-border spinner-border-sm me-2"></span>
+          📊 Excel
+        </button>
+        <button class="btn btn-primary" (click)="refreshData()">🔄 Actualizar</button>
+      </div>
+    </section>
+
+    <!-- Filters Section -->
+    <section class="filters-section">
+      <h3 class="filters-title">🔍 Filtros de Análisis</h3>
+      <div class="filters-grid">
+        <div class="filter-group">
+          <label for="periodoAnalisis">Período de Análisis</label>
+          <select 
+            id="periodoAnalisis" 
+            [(ngModel)]="filters.periodo" 
+            (change)="onFiltersChanged()"
+            class="form-control">
+            <option value="mes-actual">Mes Actual</option>
+            <option value="ultimo-trimestre">Último Trimestre</option>
+            <option value="ultimo-semestre">Último Semestre</option>
+            <option value="ultimo-año">Último Año</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="tipoPersonal">Tipo de Personal</label>
+          <select 
+            id="tipoPersonal" 
+            [(ngModel)]="filters.tipoPersonal" 
+            (change)="onFiltersChanged()"
+            class="form-control">
+            <option value="todos">Todos</option>
+            <option value="docente">Docentes</option>
+            <option value="administrativo">Administrativos</option>
+            <option value="servicio">Personal de Servicio</option>
+          </select>
+        </div>
+
+        <div class="filter-group" *ngIf="filterOptions">
+          <label for="area">Área</label>
+          <select 
+            id="area" 
+            [(ngModel)]="filters.area" 
+            (change)="onFiltersChanged()"
+            class="form-control">
+            <option value="todas">Todas las Áreas</option>
+            <option *ngFor="let area of filterOptions.areas" [value]="area.nombre">
+              {{area.nombre}}
+            </option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label>&nbsp;</label>
+          <button class="btn btn-primary" (click)="onFiltersChanged()">📊 Aplicar Filtros</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Summary Cards -->
+    <section class="summary-section" *ngIf="summaryCards">
+      <div class="summary-card primary">
+        <div class="summary-value">{{formatCurrency(summaryCards.total_salarios_brutos.valor)}}</div>
+        <div class="summary-label">Total Salarios Brutos</div>
+        <div [class]="getChangeClass(summaryCards.total_salarios_brutos.direccion)">
+          {{summaryCards.total_salarios_brutos.descripcion}}
+        </div>
+      </div>
+
+      <div class="summary-card success">
+        <div class="summary-value">{{summaryCards.empleados_activos.valor}}</div>
+        <div class="summary-label">Empleados Activos</div>
+        <div [class]="getChangeClass(summaryCards.empleados_activos.direccion)">
+          {{summaryCards.empleados_activos.descripcion}}
+        </div>
+      </div>
+
+      <div class="summary-card warning">
+        <div class="summary-value">{{formatCurrency(summaryCards.total_descuentos.valor)}}</div>
+        <div class="summary-label">Total Descuentos</div>
+        <div [class]="getChangeClass(summaryCards.total_descuentos.direccion)">
+          {{summaryCards.total_descuentos.descripcion}}
+        </div>
+      </div>
+
+      <div class="summary-card danger">
+        <div class="summary-value">{{formatCurrency(summaryCards.salario_promedio.valor)}}</div>
+        <div class="summary-label">Salario Promedio</div>
+        <div [class]="getChangeClass(summaryCards.salario_promedio.direccion)">
+          {{summaryCards.salario_promedio.descripcion}}
+        </div>
+      </div>
+    </section>
+
+    <!-- Loading for Summary Cards -->
+    <section class="summary-section" *ngIf="loading.summary">
+      <div class="loading-card" *ngFor="let item of [1,2,3,4]">
+        <div class="spinner-border" role="status"></div>
+        <p>Cargando...</p>
+      </div>
+    </section>
+
+    <!-- Charts Section -->
+    <section class="charts-section">
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3 class="chart-title">📈 Evolución de Planillas</h3>
+          <div class="chart-options">
+            <button 
+              class="btn btn-sm btn-outline" 
+              (click)="toggleChartType('payrollChart', 'line')">
+              Línea
+            </button>
+            <button 
+              class="btn btn-sm btn-outline" 
+              (click)="toggleChartType('payrollChart', 'bar')">
+              Barras
+            </button>
+            <button 
+              class="btn btn-sm btn-warning" 
+              (click)="exportChart('payrollChart')">
+              📤 PNG
+            </button>
+          </div>
+        </div>
+        <div class="chart-container">
+          <div *ngIf="loading.charts" class="chart-loading">
+            <div class="spinner-border" role="status"></div>
+            <p>Cargando gráfico...</p>
+          </div>
+          <canvas #payrollChart *ngIf="!loading.charts"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3 class="chart-title">🥧 Distribución por Área</h3>
+          <div class="chart-options">
+            <button class="btn btn-sm btn-outline">Ver %</button>
+            <button 
+              class="btn btn-sm btn-warning" 
+              (click)="exportChart('distributionChart')">
+              📤 PNG
+            </button>
+          </div>
+        </div>
+        <div class="chart-container">
+          <div *ngIf="loading.charts" class="chart-loading">
+            <div class="spinner-border" role="status"></div>
+            <p>Cargando gráfico...</p>
+          </div>
+          <canvas #distributionChart *ngIf="!loading.charts"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3 class="chart-title">📊 Comparativo de Costos</h3>
+          <div class="chart-options">
+            <button 
+              class="btn btn-sm btn-warning" 
+              (click)="exportChart('costsChart')">
+              📤 PNG
+            </button>
+          </div>
+        </div>
+        <div class="chart-container">
+          <div *ngIf="loading.charts" class="chart-loading">
+            <div class="spinner-border" role="status"></div>
+            <p>Cargando gráfico...</p>
+          </div>
+          <canvas #costsChart *ngIf="!loading.charts"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3 class="chart-title">📈 Tendencias Mensuales</h3>
+          <div class="chart-options">
+            <button 
+              class="btn btn-sm btn-warning" 
+              (click)="exportChart('trendsChart')">
+              📤 PNG
+            </button>
+          </div>
+        </div>
+        <div class="chart-container">
+          <div *ngIf="loading.charts" class="chart-loading">
+            <div class="spinner-border" role="status"></div>
+            <p>Cargando gráfico...</p>
+          </div>
+          <canvas #trendsChart *ngIf="!loading.charts"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quick Reports -->
+    <section class="reports-section">
+      <div class="reports-header">
+        <h3 class="reports-title">📋 Reportes Rápidos</h3>
+        <span class="btn btn-outline">6 reportes disponibles</span>
+      </div>
+
+      <div class="reports-grid">
+        <div class="report-item">
+          <div class="report-icon">💰</div>
+          <h4 class="report-title">Reporte de Planillas</h4>
+          <p class="report-description">
+            Detalle completo de planillas por período, incluyendo todos los conceptos de pago y descuentos.
+          </p>
+          <div class="report-actions">
+            <button 
+              class="btn btn-sm btn-primary" 
+              (click)="generatePayrollReport('pdf')">
+              📄 PDF
+            </button>
+            <button 
+              class="btn btn-sm btn-success" 
+              (click)="generatePayrollReport('excel')">
+              📊 Excel
+            </button>
+          </div>
+        </div>
+
+        <div class="report-item">
+          <div class="report-icon">👥</div>
+          <h4 class="report-title">Reporte de Personal</h4>
+          <p class="report-description">
+            Información detallada del personal activo, contratos, cargos y distribución por áreas.
+          </p>
+          <div class="report-actions">
+            <button 
+              class="btn btn-sm btn-primary" 
+              (click)="generateStaffReport('pdf')">
+              📄 PDF
+            </button>
+            <button 
+              class="btn btn-sm btn-success" 
+              (click)="generateStaffReport('excel')">
+              📊 Excel
+            </button>
+          </div>
+        </div>
+
+        <div class="report-item">
+          <div class="report-icon">📈</div>
+          <h4 class="report-title">Análisis Financiero</h4>
+          <p class="report-description">
+            Análisis de costos de personal, proyecciones presupuestarias y tendencias de gastos.
+          </p>
+          <div class="report-actions">
+            <button 
+              class="btn btn-sm btn-primary" 
+              (click)="generateFinancialReport('pdf')">
+              📄 PDF
+            </button>
+            <button 
+              class="btn btn-sm btn-success" 
+              (click)="generateFinancialReport('excel')">
+              📊 Excel
+            </button>
+          </div>
+        </div>
+
+        <div class="report-item">
+          <div class="report-icon">📊</div>
+          <h4 class="report-title">Dashboard Ejecutivo</h4>
+          <p class="report-description">
+            Resumen ejecutivo con indicadores clave, métricas de rendimiento y gráficos principales.
+          </p>
+          <div class="report-actions">
+            <button 
+              class="btn btn-sm btn-primary" 
+              (click)="generateExecutiveReport('pdf')">
+              📄 PDF
+            </button>
+            <button 
+              class="btn btn-sm btn-warning" 
+              (click)="generateExecutiveReport('ppt')">
+              📊 PowerPoint
+            </button>
+          </div>
+        </div>
+
+        <div class="report-item">
+          <div class="report-icon">🔍</div>
+          <h4 class="report-title">Análisis Comparativo</h4>
+          <p class="report-description">
+            Comparación entre períodos, áreas y tipos de personal con métricas de crecimiento.
+          </p>
+          <div class="report-actions">
+            <button 
+              class="btn btn-sm btn-primary" 
+              (click)="generateComparativeReport('pdf')">
+              📄 PDF
+            </button>
+            <button 
+              class="btn btn-sm btn-success" 
+              (click)="generateComparativeReport('excel')">
+              📊 Excel
+            </button>
+          </div>
+        </div>
+
+        <div class="report-item">
+          <div class="report-icon">⚡</div>
+          <h4 class="report-title">Reporte Personalizado</h4>
+          <p class="report-description">
+            Genera reportes customizados con los datos y filtros que necesites para tu análisis.
+          </p>
+          <div class="report-actions">
+            <button 
+              class="btn btn-sm btn-primary" 
+              (click)="openCustomReportBuilder()">
+              🛠️ Configurar
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Detailed Table -->
+    <section class="table-section">
+      <div class="table-header">
+        <h3 class="table-title">📋 Detalle por Área</h3>
+        <div>
+          <button 
+            class="btn btn-sm btn-warning" 
+            (click)="exportTablePDF('area-detail')">
+            📄 PDF
+          </button>
+          <button 
+            class="btn btn-sm btn-success" 
+            (click)="exportTableExcel('area-detail')">
+            📊 Excel
+          </button>
+        </div>
+      </div>
+
+      <!-- Loading state -->
+      <div *ngIf="loading.tables" class="table-loading">
+        <div class="spinner-border" role="status"></div>
+        <p>Cargando datos de tabla...</p>
+      </div>
+
+      <!-- Table content -->
+      <div *ngIf="!loading.tables && detailByArea" class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Área</th>
+              <th>Total Personal</th>
+              <th>Sueldo Bruto</th>
+              <th>Descuentos (25%)</th>
+              <th>Sueldo Neto</th>
+              <th>Promedio/Persona</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let area of detailByArea.detalle_areas">
+              <td><strong>{{area.area_nombre}}</strong></td>
+              <td>{{area.total_personal}}</td>
+              <td class="amount positive">{{formatCurrency(area.sueldo_bruto)}}</td>
+              <td class="amount negative">{{formatCurrency(area.descuentos)}}</td>
+              <td class="amount positive">{{formatCurrency(area.sueldo_neto)}}</td>
+              <td class="amount">{{formatCurrency(area.promedio_persona)}}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Empty state -->
+      <div *ngIf="!loading.tables && (!detailByArea || detailByArea.detalle_areas.length === 0)" class="empty-state">
+        <div class="empty-icon">📊</div>
+        <p>No hay datos disponibles para mostrar</p>
+        <p class="text-muted">Ajusta los filtros para ver información</p>
+      </div>
+    </section>
+
+    <!-- Employees Detail Table -->
+    <section class="table-section" *ngIf="employeesDetail && employeesDetail.empleados.length > 0">
+      <div class="table-header">
+        <h3 class="table-title">👥 Detalle de Empleados</h3>
+        <div>
+          <button 
+            class="btn btn-sm btn-warning" 
+            (click)="exportTablePDF('employees')">
+            📄 PDF
+          </button>
+          <button 
+            class="btn btn-sm btn-success" 
+            (click)="exportTableExcel('employees')">
+            📊 Excel
+          </button>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>DNI</th>
+              <th>Nombre Completo</th>
+              <th>Área</th>
+              <th>Cargo</th>
+              <th>Sueldo Básico</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let empleado of employeesDetail.empleados; let i = index">
+              <td>{{empleado.dni}}</td>
+              <td><strong>{{empleado.nombre_completo}}</strong></td>
+              <td>{{empleado.area}}</td>
+              <td>{{empleado.cargo}}</td>
+              <td class="amount">{{formatCurrency(empleado.sueldo_basico)}}</td>
+              <td>
+                <span 
+                  class="status-badge" 
+                  [class.status-active]="empleado.estado === 'activo'"
+                  [class.status-inactive]="empleado.estado === 'inactivo'">
+                  {{empleado.estado | titlecase}}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-footer">
+        <p>Total de empleados: <strong>{{employeesDetail.total_empleados}}</strong></p>
+      </div>
+    </section>
+  </main>
+</div>

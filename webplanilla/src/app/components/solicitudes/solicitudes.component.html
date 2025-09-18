@@ -1,0 +1,564 @@
+<div class="solicitudes-container">
+    <!-- Header -->
+    <div class="header-section">
+        <div class="title-section">
+            <h1 class="page-title">
+                <i class="icon-document"></i>
+                Gestión de Solicitudes
+            </h1>
+            <p class="page-description">Administra todas las solicitudes del personal del instituto</p>
+        </div>
+
+        <!-- Estadísticas Cards -->
+        <div class="stats-grid" *ngIf="estadisticas">
+            <div class="stat-card">
+                <div class="stat-icon total">
+                    <i class="icon-files"></i>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-number">{{ estadisticas.total_solicitudes }}</span>
+                    <span class="stat-label">Total</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon pending">
+                    <i class="icon-clock"></i>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-number">{{ estadisticas.pendientes }}</span>
+                    <span class="stat-label">Pendientes</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon approved">
+                    <i class="icon-check-circle"></i>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-number">{{ estadisticas.aprobadas }}</span>
+                    <span class="stat-label">Aprobadas</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon rejected">
+                    <i class="icon-x-circle"></i>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-number">{{ estadisticas.rechazadas }}</span>
+                    <span class="stat-label">Rechazadas</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions Bar -->
+    <div class="actions-bar">
+        <div class="actions-left">
+            <button type="button" class="btn btn-primary btn-create" (click)="openCreateModal()">
+                <i class="icon-plus"></i>
+                Nueva Solicitud
+            </button>
+        </div>
+
+        <div class="actions-right">
+            <button type="button" class="btn btn-success" (click)="exportarCSV()">
+                <i class="icon-download"></i>
+                Exportar CSV
+            </button>
+        </div>
+    </div>
+
+    <!-- Tabs Container -->
+    <div class="tabs-container">
+        <div class="tabs-header">
+            <button class="tab-button" [class.active]="currentTab === 'todas'" (click)="showTab('todas')">
+                Todas las Solicitudes
+            </button>
+            <button class="tab-button" [class.active]="currentTab === 'mis-solicitudes'"
+                (click)="showTab('mis-solicitudes')">
+                Mis Solicitudes
+            </button>
+            <button class="tab-button" [class.active]="currentTab === 'por-aprobar'" (click)="showTab('por-aprobar')">
+                Por Aprobar
+            </button>
+            <button class="tab-button" [class.active]="currentTab === 'historial'" (click)="showTab('historial')">
+                Historial
+            </button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="tab-content">
+            <!-- Filters Section -->
+            <div class="filters-section">
+                <form [formGroup]="filtrosForm!" class="filters-form">
+                    <div class="filter-row">
+                        <!-- Búsqueda -->
+                        <div class="form-group search-group">
+                            <label for="search" class="form-label">Buscar</label>
+                            <div class="search-input-container">
+                                <i class="icon-search search-icon"></i>
+                                <input #searchInput id="search" type="text" class="form-control search-input"
+                                    placeholder="Nombre del solicitante..." (input)="onSearch(searchInput.value)"
+                                    formControlName="search">
+                            </div>
+                        </div>
+
+                        <!-- Filtro por Tipo -->
+                        <div class="form-group">
+                            <label for="tipo" class="form-label">Tipo de Solicitud</label>
+                            <select id="tipo" class="form-control" formControlName="tipo">
+                                <option value="todas">Todas</option>
+                                <option *ngFor="let tipo of tiposSolicitudes" [value]="tipo.id">
+                                    {{ tipo.name }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Filtro por Estado -->
+                        <div class="form-group">
+                            <label for="estado" class="form-label">Estado</label>
+                            <select id="estado" class="form-control" formControlName="estado">
+                                <option value="todos">Todos</option>
+                                <option *ngFor="let estado of estadosSolicitudes" [value]="estado.id">
+                                    {{ estado.name }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Filtro por Fecha -->
+                        <div class="form-group">
+                            <label for="fecha" class="form-label">Fecha</label>
+                            <input type="date" id="fecha" class="form-control" formControlName="fecha">
+                        </div>
+
+                        <!-- Limpiar filtros -->
+                        <div class="form-group">
+                            <label>&nbsp;</label>
+                            <button type="button" class="btn btn-outline"
+                                (click)="filtrosForm?.reset(); applyFilters({})">
+                                Limpiar
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Results Summary -->
+            <div class="results-summary">
+                <span class="results-text">
+                    Mostrando {{ solicitudes.length }} solicitudes
+                </span>
+            </div>
+
+            <!-- Loading State -->
+            <div *ngIf="loading" class="loading-container">
+                <div class="loading-spinner">
+                    <div class="spinner"></div>
+                    <p>Cargando solicitudes...</p>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div *ngIf="!loading && solicitudes.length === 0" class="empty-state">
+                <i class="icon-file-text"></i>
+                <h3>No se encontraron solicitudes</h3>
+                <p>No hay solicitudes que coincidan con los filtros aplicados.</p>
+                <button type="button" class="btn btn-primary" (click)="openCreateModal()">
+                    Crear Primera Solicitud
+                </button>
+            </div>
+
+            <!-- Solicitudes Grid -->
+            <div *ngIf="!loading && solicitudes.length > 0" class="solicitudes-grid">
+                <div *ngFor="let solicitud of solicitudes; trackBy: trackBySolicitud" class="solicitud-card">
+                    <div class="solicitud-header">
+                        <div class="solicitud-info">
+                            <h3>{{ solicitud.titulo }}</h3>
+                            <div class="solicitud-meta">
+                                {{ solicitud.solicitante }} • {{ formatDate(solicitud.fecha_creacion) }}
+                            </div>
+                        </div>
+                        <span class="status-badge" [ngClass]="getStatusClass(solicitud.estado)">
+                            {{ getEstadoLabel(solicitud.estado) }}
+                        </span>
+                    </div>
+
+                    <div class="solicitud-body">
+                        <div class="solicitud-details">
+                            <div class="detail-row">
+                                <span class="detail-label">Tipo:</span>
+                                <span class="detail-value">{{ getTituloPorTipo(solicitud.tipo_solicitud) }}</span>
+                            </div>
+
+                            <!-- Detalles específicos por tipo -->
+                            <div *ngIf="solicitud.fecha_inicio && solicitud.fecha_fin" class="detail-row">
+                                <span class="detail-label">Período:</span>
+                                <span class="detail-value">
+                                    {{ formatDate(solicitud.fecha_inicio) }} - {{ formatDate(solicitud.fecha_fin) }}
+                                    ({{ calcularDias(solicitud.fecha_inicio, solicitud.fecha_fin) }} días)
+                                </span>
+                            </div>
+
+                            <div *ngIf="solicitud.fecha_inicio && !solicitud.fecha_fin" class="detail-row">
+                                <span class="detail-label">Fecha:</span>
+                                <span class="detail-value">{{ formatDate(solicitud.fecha_inicio) }}</span>
+                            </div>
+
+                            <div *ngIf="solicitud.monto" class="detail-row">
+                                <span class="detail-label">Monto:</span>
+                                <span class="detail-value currency">S/. {{ solicitud.monto | number:'1.2-2' }}</span>
+                            </div>
+
+                            <div *ngIf="solicitud.proposito" class="detail-row">
+                                <span class="detail-label">Propósito:</span>
+                                <span class="detail-value">{{ solicitud.proposito }}</span>
+                            </div>
+
+                            <div class="detail-row">
+                                <span class="detail-label">Urgencia:</span>
+                                <span class="detail-value" [ngClass]="'urgencia-' + solicitud.urgencia">
+                                    {{ getUrgenciaLabel(solicitud.urgencia) }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="solicitud-description">
+                            <strong>Motivo:</strong> {{ solicitud.motivo }}
+                            <div *ngIf="solicitud.observaciones" class="observaciones">
+                                <strong>Observaciones:</strong> {{ solicitud.observaciones }}
+                            </div>
+                        </div>
+
+                        <div class="solicitud-actions">
+                            <button type="button" class="btn-action btn-view" title="Ver detalles"
+                                (click)="viewSolicitud(solicitud.id!)">
+                                <i class="icon-eye"></i>
+                            </button>
+
+                            <button *ngIf="solicitud.estado === 'pendiente' || solicitud.estado === 'en-revision'"
+                                type="button" class="btn-action btn-edit" title="Editar"
+                                (click)="openEditModal(solicitud)">
+                                <i class="icon-edit"></i>
+                            </button>
+
+                            <button *ngIf="solicitud.estado === 'pendiente' || solicitud.estado === 'en-revision'"
+                                type="button" class="btn-action btn-approve" title="Aprobar"
+                                (click)="aprobarSolicitud(solicitud.id!)">
+                                <i class="icon-check"></i>
+                            </button>
+
+                            <button *ngIf="solicitud.estado === 'pendiente' || solicitud.estado === 'en-revision'"
+                                type="button" class="btn-action btn-reject" title="Rechazar"
+                                (click)="rechazarSolicitud(solicitud.id!)">
+                                <i class="icon-x"></i>
+                            </button>
+
+                            <button *ngIf="solicitud.estado === 'rechazada'" type="button"
+                                class="btn-action btn-reactivate" title="Reactivar"
+                                (click)="reactivarSolicitud(solicitud.id!)">
+                                <i class="icon-refresh"></i>
+                            </button>
+
+                            <button type="button" class="btn-action btn-delete" title="Eliminar"
+                                (click)="deleteSolicitud(solicitud)">
+                                <i class="icon-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Nueva/Editar Solicitud -->
+<div class="modal-overlay" [class.show]="showModal" (click)="closeModal()">
+    <div class="modal-container modal-large" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+            <h2>{{ modalMode === 'create' ? 'Nueva Solicitud' : 'Editar Solicitud' }}</h2>
+            <button type="button" class="btn-close" (click)="closeModal()">
+                <i class="icon-x"></i>
+            </button>
+        </div>
+
+        <form [formGroup]="solicitudForm!" (ngSubmit)="onSave()" class="modal-body">
+            <!-- Información básica -->
+            <div class="form-section">
+                <h3 class="section-title">
+                    <i class="icon-info"></i>
+                    Información de la Solicitud
+                </h3>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="tipo_solicitud" class="form-label required">Tipo de Solicitud</label>
+                        <select id="tipo_solicitud" class="form-control" [class.error]="hasFieldError('tipo_solicitud')"
+                            formControlName="tipo_solicitud" (change)="onTipoSolicitudChange()">
+                            <option value="">Seleccionar tipo</option>
+                            <option *ngFor="let tipo of tiposSolicitudes" [value]="tipo.id">
+                                {{ tipo.name }}
+                            </option>
+                        </select>
+                        <div *ngIf="hasFieldError('tipo_solicitud')" class="field-error">
+                            {{ getFieldError('tipo_solicitud') }}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="trabajador_id" class="form-label required">Solicitante</label>
+                        <select id="trabajador_id" class="form-control" [class.error]="hasFieldError('trabajador_id')"
+                            formControlName="trabajador_id">
+                            <option value="">Seleccionar trabajador</option>
+                            <option *ngFor="let trabajador of trabajadores" [value]="trabajador.id">
+                                {{ trabajador.nombre_completo }} ({{ trabajador.dni }})
+                            </option>
+                        </select>
+                        <div *ngIf="hasFieldError('trabajador_id')" class="field-error">
+                            {{ getFieldError('trabajador_id') }}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="urgencia" class="form-label">Nivel de Urgencia</label>
+                        <select id="urgencia" class="form-control" formControlName="urgencia">
+                            <option *ngFor="let nivel of nivelesUrgencia" [value]="nivel.id">
+                                {{ nivel.name }}
+                            </option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Campos de fechas -->
+                <div class="form-row" *ngIf="shouldShowDateFields()">
+                    <!-- Fecha de inicio (siempre visible cuando aplica) -->
+                    <div class="form-group">
+                        <label for="fecha_inicio" class="form-label required">
+                            {{ shouldShowEndDate() ? 'Fecha de Inicio' : 'Fecha' }}
+                        </label>
+                        <input id="fecha_inicio" type="date" class="form-control"
+                            [class.error]="hasFieldError('fecha_inicio')" formControlName="fecha_inicio">
+                        <div *ngIf="hasFieldError('fecha_inicio')" class="field-error">
+                            {{ getFieldError('fecha_inicio') }}
+                        </div>
+                    </div>
+
+                    <div class="form-group" *ngIf="shouldShowEndDate()">
+                        <label for="fecha_fin" class="form-label required">Fecha de Fin</label>
+                        <input id="fecha_fin" type="date" class="form-control"
+                            [class.error]="hasFieldError('fecha_fin')" formControlName="fecha_fin">
+                        <div *ngIf="hasFieldError('fecha_fin')" class="field-error">
+                            {{ getFieldError('fecha_fin') }}
+                        </div>
+                    </div>
+
+                    <div class="form-group" *ngIf="shouldShowSchedule()">
+                        <label for="horario" class="form-label">Horario</label>
+                        <input id="horario" type="text" class="form-control" formControlName="horario"
+                            placeholder="Ej: 14:00 - 16:00">
+                    </div>
+                </div>
+
+                <!-- Campo de monto -->
+                <div class="form-row" *ngIf="shouldShowAmount()">
+                    <div class="form-group">
+                        <label for="monto" class="form-label required">Monto Solicitado</label>
+                        <div class="input-group">
+                            <span class="input-prefix">S/.</span>
+                            <input id="monto" type="number" class="form-control" [class.error]="hasFieldError('monto')"
+                                formControlName="monto" placeholder="0.00" step="0.01" min="1" max="50000">
+                        </div>
+                        <div *ngIf="hasFieldError('monto')" class="field-error">
+                            {{ getFieldError('monto') }}
+                        </div>
+                        <small class="form-help">Monto máximo: S/. 50,000</small>
+                    </div>
+                </div>
+
+                <!-- Campo de propósito -->
+                <div class="form-row" *ngIf="shouldShowPurpose()">
+                    <div class="form-group full-width">
+                        <label for="proposito" class="form-label required">Propósito</label>
+                        <input id="proposito" type="text" class="form-control"
+                            [class.error]="hasFieldError('proposito')" formControlName="proposito"
+                            placeholder="Ej: Trámite bancario" maxlength="200" minlength="3">
+                        <div *ngIf="hasFieldError('proposito')" class="field-error">
+                            {{ getFieldError('proposito') }}
+                        </div>
+                        <small class="form-help">Entre 3 y 200 caracteres</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Motivo/Descripción -->
+            <div class="form-section">
+                <h3 class="section-title">
+                    <i class="icon-message"></i>
+                    Motivo y Descripción
+                </h3>
+
+                <div class="form-group full-width">
+                    <label for="motivo" class="form-label required">Motivo/Descripción</label>
+                    <textarea id="motivo" class="form-control" [class.error]="hasFieldError('motivo')"
+                        formControlName="motivo" rows="4"
+                        placeholder="Describe detalladamente el motivo de tu solicitud..."></textarea>
+                    <div *ngIf="hasFieldError('motivo')" class="field-error">
+                        {{ getFieldError('motivo') }}
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" (click)="closeModal()" [disabled]="saving">
+                Cancelar
+            </button>
+            <button type="button" class="btn btn-primary" (click)="onSave()"
+                [disabled]="saving || solicitudForm!.invalid">
+                <span *ngIf="saving" class="spinner-sm"></span>
+                {{ saving ? 'Guardando...' : (modalMode === 'create' ? 'Crear Solicitud' : 'Actualizar Solicitud') }}
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Detalles -->
+<div class="modal-overlay" [class.show]="showDetailModal" (click)="closeDetailModal()">
+    <div class="modal-container modal-large" (click)="$event.stopPropagation()" *ngIf="selectedSolicitud">
+        <div class="modal-header">
+            <h2>{{ selectedSolicitud.titulo }}</h2>
+            <button type="button" class="btn-close" (click)="closeDetailModal()">
+                <i class="icon-x"></i>
+            </button>
+        </div>
+
+        <div class="modal-body details-modal">
+            <!-- Resumen de la solicitud -->
+            <div class="solicitud-summary">
+                <div class="summary-info">
+                    <h3>{{ selectedSolicitud.titulo }}</h3>
+                    <p class="summary-meta">
+                        Solicitado por {{ selectedSolicitud.solicitante }} el {{
+                        formatDate(selectedSolicitud.fecha_creacion) }}
+                    </p>
+                    <div class="summary-badges">
+                        <span class="status-badge" [ngClass]="getStatusClass(selectedSolicitud.estado)">
+                            {{ getEstadoLabel(selectedSolicitud.estado) }}
+                        </span>
+                        <span class="urgencia-badge" [ngClass]="'urgencia-' + selectedSolicitud.urgencia">
+                            {{ getUrgenciaLabel(selectedSolicitud.urgencia) }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detalles de la solicitud -->
+            <div class="details-grid">
+                <div class="detail-section">
+                    <h4><i class="icon-info"></i> Información General</h4>
+                    <div class="detail-items">
+                        <div class="detail-item">
+                            <label>Tipo de Solicitud:</label>
+                            <span>{{ getTituloPorTipo(selectedSolicitud.tipo_solicitud) }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Estado:</label>
+                            <span>{{ getEstadoLabel(selectedSolicitud.estado) }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Urgencia:</label>
+                            <span>{{ getUrgenciaLabel(selectedSolicitud.urgencia) }}</span>
+                        </div>
+                        <div class="detail-item" *ngIf="selectedSolicitud.area">
+                            <label>Área:</label>
+                            <span>{{ selectedSolicitud.area }}</span>
+                        </div>
+                        <div class="detail-item" *ngIf="selectedSolicitud.cargo">
+                            <label>Cargo:</label>
+                            <span>{{ selectedSolicitud.cargo }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detalles específicos -->
+                <div class="detail-section">
+                    <h4><i class="icon-calendar"></i> Detalles Específicos</h4>
+                    <div class="detail-items">
+                        <div class="detail-item" *ngIf="selectedSolicitud.fecha_inicio">
+                            <label>{{ selectedSolicitud.fecha_fin ? 'Fecha de Inicio:' : 'Fecha:' }}</label>
+                            <span>{{ formatDate(selectedSolicitud.fecha_inicio) }}</span>
+                        </div>
+                        <div class="detail-item" *ngIf="selectedSolicitud.fecha_fin">
+                            <label>Fecha de Fin:</label>
+                            <span>{{ formatDate(selectedSolicitud.fecha_fin) }}</span>
+                        </div>
+                        <div class="detail-item" *ngIf="selectedSolicitud.dias_solicitados">
+                            <label>Días Solicitados:</label>
+                            <span>{{ selectedSolicitud.dias_solicitados }} días</span>
+                        </div>
+                        <div class="detail-item" *ngIf="selectedSolicitud.horario">
+                            <label>Horario:</label>
+                            <span>{{ selectedSolicitud.horario }}</span>
+                        </div>
+                        <div class="detail-item" *ngIf="selectedSolicitud.monto">
+                            <label>Monto:</label>
+                            <span class="currency">S/. {{ selectedSolicitud.monto | number:'1.2-2' }}</span>
+                        </div>
+                        <div class="detail-item" *ngIf="selectedSolicitud.proposito">
+                            <label>Propósito:</label>
+                            <span>{{ selectedSolicitud.proposito }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Motivo -->
+            <div class="motivo-section">
+                <h4><i class="icon-message"></i> Motivo</h4>
+                <div class="motivo-content">
+                    {{ selectedSolicitud.motivo }}
+                </div>
+            </div>
+
+            <!-- Observaciones -->
+            <div class="observaciones-section" *ngIf="selectedSolicitud.observaciones">
+                <h4><i class="icon-note"></i> Observaciones</h4>
+                <div class="observaciones-content">
+                    {{ selectedSolicitud.observaciones }}
+                </div>
+            </div>
+
+            <!-- Timeline -->
+            <div class="timeline-section" *ngIf="selectedSolicitud.timeline && selectedSolicitud.timeline.length > 0">
+                <h4><i class="icon-clock"></i> Historial de la Solicitud</h4>
+                <div class="timeline">
+                    <div *ngFor="let item of selectedSolicitud.timeline" class="timeline-item">
+                        <div class="timeline-icon" [ngClass]="'timeline-' + item.evento">
+                            {{ getTimelineIcon(item.evento) }}
+                        </div>
+                        <div class="timeline-content">
+                            <h5>{{ item.descripcion }}</h5>
+                            <p>Por: {{ item.usuario }}</p>
+                            <div class="timeline-date">{{ formatDateTime(item.fecha) }}</div>
+                            <div *ngIf="item.observaciones" class="timeline-observations">
+                                {{ item.observaciones }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" (click)="closeDetailModal()">
+                Cerrar
+            </button>
+            <button *ngIf="selectedSolicitud.estado === 'pendiente' || selectedSolicitud.estado === 'en-revision'"
+                type="button" class="btn btn-primary" (click)="openEditModal(selectedSolicitud)">
+                <i class="icon-edit"></i>
+                Editar Solicitud
+            </button>
+        </div>
+    </div>
+</div>

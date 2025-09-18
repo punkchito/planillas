@@ -1,0 +1,698 @@
+<!-- src/app/components/indicadores/indicadores.component.html - CORREGIDO -->
+<div class="indicadores-container">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <div class="breadcrumb">
+        <a (click)="goToDashboard()">🏠 Dashboard</a>
+        <span>></span>
+        <span>Gestión de Indicadores</span>
+      </div>
+      <div>
+        <a class="btn btn-outline" (click)="goToDashboard()">Salir</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" *ngIf="isLoading">
+    <div class="loading-spinner">
+      <div class="spinner"></div>
+      <p>Cargando...</p>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="main-content">
+
+    <!-- Page Header -->
+    <section class="page-header">
+      <div class="page-title">
+        <h1>📊 Gestión de Indicadores</h1>
+        <p>Sistema dinámico de administración de indicadores de recursos humanos</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-outline" (click)="exportData('indicators')">📤 Excel</button>
+        <button class="btn btn-outline" (click)="exportData('indicators')">📄 PDF</button>
+        <button class="btn btn-primary" (click)="openModal('variable')">+ Nueva Variable</button>
+      </div>
+    </section>
+
+    <!-- Layout Container -->
+    <div class="indicators-layout">
+
+      <!-- Sidebar -->
+      <aside class="indicators-sidebar">
+        <div class="sidebar-header">
+          <h3 class="sidebar-title">🌳 Estructura de Indicadores</h3>
+          <button class="btn btn-sm btn-outline" (click)="refreshData()" title="Refrescar datos">🔄</button>
+          <button class="btn btn-sm btn-warning" (click)="debugTreeStructure()" title="Debug completo">🔍</button>
+          <button class="btn btn-sm btn-info" (click)="expandFirstLevel()" title="Expandir primer nivel">📂</button>
+          <button class="btn btn-sm btn-success" (click)="forceCompleteRefresh()" title="Forzar recarga">⚡</button>
+
+
+        </div>
+
+        <div class="tree-container">
+          <div *ngFor="let node of treeNodes; trackBy: trackByNodeId" class="tree-item">
+            <!-- Variable Node -->
+            <div class="tree-node variable" [class.active]="selectedNode?.id === node.id" [attr.data-node-id]="node.id"
+              (click)="selectNode(node)">
+              <span class="tree-toggle" *ngIf="node.children && node.children.length > 0"
+                (click)="toggleNode(node); $event.stopPropagation()" [title]="node.expanded ? 'Colapsar' : 'Expandir'">
+                {{ node.expanded ? '▼' : '▶' }}
+              </span>
+              <span class="tree-toggle-placeholder" *ngIf="!node.children || node.children.length === 0">
+                &nbsp;&nbsp;&nbsp;
+              </span>
+              <span class="tree-icon">📊</span>
+              <span class="tree-label">{{ node.name }}</span>
+              <!-- Contador de hijos -->
+              <span class="badge" *ngIf="node.children && node.children.length > 0">
+                {{ node.children.length }}
+              </span>
+              <div class="tree-actions">
+                <button class="btn-sm btn-success"
+                  (click)="openModal('dimension', { variable_id: node.id }); $event.stopPropagation()"
+                  title="Agregar dimensión">➕</button>
+                <button class="btn-sm btn-info" (click)="editNode(node); $event.stopPropagation()"
+                  title="Editar">✏️</button>
+                <button class="btn-sm btn-danger" (click)="deleteNode(node); $event.stopPropagation()"
+                  title="Eliminar">🗑️</button>
+                <!-- Botón de debug para este nodo específico -->
+                <button class="btn-sm btn-warning" (click)="debugNodeExpansion(node.id); $event.stopPropagation()"
+                  title="Debug este nodo">🔍</button>
+              </div>
+            </div>
+
+            <!-- Dimension Children Container -->
+            <div class="tree-children" [class.expanded]="node.expanded && node.children && node.children.length > 0"
+              [style.display]="node.expanded && node.children && node.children.length > 0 ? 'block' : 'none'">
+
+              <div *ngFor="let dimNode of node.children; trackBy: trackByNodeId" class="tree-item">
+                <!-- Dimension Node -->
+                <div class="tree-node dimension" [class.active]="selectedNode?.id === dimNode.id"
+                  [attr.data-node-id]="dimNode.id" (click)="selectNode(dimNode)">
+                  <span class="tree-toggle" *ngIf="dimNode.children && dimNode.children.length > 0"
+                    (click)="toggleNode(dimNode); $event.stopPropagation()"
+                    [title]="dimNode.expanded ? 'Colapsar' : 'Expandir'">
+                    {{ dimNode.expanded ? '▼' : '▶' }}
+                  </span>
+                  <span class="tree-toggle-placeholder" *ngIf="!dimNode.children || dimNode.children.length === 0">
+                    &nbsp;&nbsp;&nbsp;
+                  </span>
+                  <span class="tree-icon">📁</span>
+                  <span class="tree-label">{{ dimNode.name }}</span>
+                  <!-- Contador de indicadores -->
+                  <span class="badge" *ngIf="dimNode.children && dimNode.children.length > 0">
+                    {{ dimNode.children.length }}
+                  </span>
+                  <div class="tree-actions">
+                    <button class="btn-sm btn-success"
+                      (click)="openModal('indicator', { dimension_id: dimNode.id }); $event.stopPropagation()"
+                      title="Agregar indicador">➕</button>
+                    <button class="btn-sm btn-info" (click)="editNode(dimNode); $event.stopPropagation()"
+                      title="Editar">✏️</button>
+                    <button class="btn-sm btn-danger" (click)="deleteNode(dimNode); $event.stopPropagation()"
+                      title="Eliminar">🗑️</button>
+                    <button class="btn-sm btn-warning"
+                      (click)="debugNodeExpansion(dimNode.id); $event.stopPropagation()"
+                      title="Debug este nodo">🔍</button>
+                  </div>
+                </div>
+
+                <!-- Indicator Children Container -->
+                <div class="tree-children"
+                  [class.expanded]="dimNode.expanded && dimNode.children && dimNode.children.length > 0"
+                  [style.display]="dimNode.expanded && dimNode.children && dimNode.children.length > 0 ? 'block' : 'none'">
+
+                  <div *ngFor="let indNode of dimNode.children; trackBy: trackByNodeId" class="tree-item">
+                    <!-- Indicator Node -->
+                    <div class="tree-node indicator" [class.active]="selectedNode?.id === indNode.id"
+                      [attr.data-node-id]="indNode.id" (click)="selectNode(indNode)">
+                      <span class="tree-toggle-placeholder">&nbsp;&nbsp;&nbsp;</span>
+                      <span class="tree-icon">📈</span>
+                      <span class="tree-label">{{ indNode.name }}</span>
+                      <div class="tree-actions">
+                        <button class="btn-sm btn-info" (click)="editNode(indNode); $event.stopPropagation()"
+                          title="Editar">✏️</button>
+                        <button class="btn-sm btn-danger" (click)="deleteNode(indNode); $event.stopPropagation()"
+                          title="Eliminar">🗑️</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Debug info mejorado -->
+          <div class="debug-info" *ngIf="true"
+            style="background: #f0f8ff; border: 1px solid #cce7ff; padding: 12px; margin: 10px 0; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 11px;">
+            <strong>🔍 Debug Info:</strong><br>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
+              <div>
+                TreeNodes: <span style="color: #0066cc;">{{ treeNodes?.length || 0 }}</span><br>
+                Variables: <span style="color: #0066cc;">{{ variables?.length || 0 }}</span><br>
+                Selected: <span style="color: #009900;">{{ selectedNode?.name || 'none' }}</span>
+              </div>
+              <div>
+                Loading: <span style="color: #cc6600;">{{ isLoading }}</span><br>
+                DOM Nodes: <span style="color: #0066cc;">{{ getTreeNodesInDom() }}</span><br>
+                <button class="btn btn-sm btn-outline" (click)="forceRender()"
+                  style="font-size: 10px; padding: 2px 6px;">🔄 Force Render</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mensaje cuando no hay datos -->
+          <div *ngIf="treeNodes.length === 0 && !isLoading" class="no-data">
+            <div class="no-data-icon">🌳</div>
+            <h3>No hay variables disponibles</h3>
+            <p>Crea la primera variable para comenzar</p>
+            <button class="btn btn-primary" (click)="openModal('variable')">+ Crear Variable</button>
+          </div>
+        </div>
+
+
+
+      </aside>
+
+      <!-- Content Area -->
+      <div class="content-area">
+        <div class="content-header">
+          <h2 class="content-title">
+            {{ selectedNode ? selectedNode.name : 'Dashboard de Indicadores' }}
+          </h2>
+          <p class="content-subtitle">
+            {{ getSelectedNodeDescription() }}
+          </p>
+        </div>
+
+        <!-- Tabs -->
+        <div class="content-tabs">
+          <button class="tab-button" [class.active]="currentTab === 'dashboard'" (click)="showTab('dashboard')">📊
+            Dashboard</button>
+          <button class="tab-button" [class.active]="currentTab === 'metrics'" (click)="showTab('metrics')">📈
+            Métricas</button>
+          <button class="tab-button" [class.active]="currentTab === 'config'" (click)="showTab('config')">⚙️
+            Configuración</button>
+          <button class="tab-button" [class.active]="currentTab === 'reports'" (click)="showTab('reports')">📋
+            Reportes</button>
+        </div>
+
+        <div class="content-body">
+
+          <!-- Dashboard Tab -->
+          <div class="tab-content" [class.active]="currentTab === 'dashboard'">
+            <div class="dashboard-grid" *ngIf="dashboardStats">
+              <div class="metric-card excellent">
+                <div class="metric-value">{{ dashboardStats.summary.total_indicators }}</div>
+                <div class="metric-label">Total Indicadores</div>
+                <div class="metric-change change-positive">{{ dashboardStats.summary.total_variables }} variables
+                  activas</div>
+              </div>
+
+              <div class="metric-card good">
+                <div class="metric-value">{{ dashboardStats.summary.average_value | number:'1.1-1' }}%</div>
+                <div class="metric-label">Promedio General</div>
+                <div class="metric-change change-positive">Desempeño consolidado</div>
+              </div>
+
+              <div class="metric-card" [class.excellent]="dashboardStats.summary.critical_indicators === 0"
+                [class.warning]="dashboardStats.summary.critical_indicators > 0">
+                <div class="metric-value">{{ dashboardStats.summary.critical_indicators }}</div>
+                <div class="metric-label">Indicadores Críticos</div>
+                <div class="metric-change" [class.change-positive]="dashboardStats.summary.critical_indicators === 0"
+                  [class.change-negative]="dashboardStats.summary.critical_indicators > 0">
+                  {{ dashboardStats.summary.critical_indicators === 0 ? 'Todos en buen estado' : 'Requieren atención' }}
+                </div>
+              </div>
+
+              <div class="metric-card"
+                [class.excellent]="dashboardStats.summary.met_targets >= dashboardStats.summary.total_indicators * 0.8"
+                [class.poor]="dashboardStats.summary.met_targets < dashboardStats.summary.total_indicators * 0.8">
+                <div class="metric-value">{{ dashboardStats.summary.met_targets }}</div>
+                <div class="metric-label">Metas Cumplidas</div>
+                <div class="metric-change change-positive">
+                  {{ ((dashboardStats.summary.met_targets / dashboardStats.summary.total_indicators) * 100) |
+                  number:'1.1-1' }}% del total
+                </div>
+              </div>
+            </div>
+
+            <!-- Top & Worst Indicators -->
+            <div class="chart-container" *ngIf="dashboardStats && dashboardStats.top_indicators.length > 0">
+              <div class="chart-title">🏆 Mejores Indicadores</div>
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Indicador</th>
+                    <th>Dimensión</th>
+                    <th>Valor Actual</th>
+                    <th>Meta</th>
+                    <th>Rendimiento</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let indicator of dashboardStats.top_indicators">
+                    <td>{{ indicator.name }}</td>
+                    <td>{{ indicator.dimension_name }}</td>
+                    <td>{{ indicator.current_value }}{{ indicator.unit }}</td>
+                    <td>{{ indicator.target_value }}{{ indicator.unit }}</td>
+                    <td>
+                      <span class="status-excellent">{{ indicator.performance_percentage }}%</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Metrics Tab -->
+          <div class="tab-content" [class.active]="currentTab === 'metrics'">
+            <form [formGroup]="searchForm" class="search-form">
+              <div class="search-input-group">
+                <input type="text" formControlName="searchTerm" placeholder="Buscar indicadores..."
+                  class="search-input">
+                <button type="button" class="search-btn">🔍</button>
+              </div>
+            </form>
+
+            <table class="data-table" *ngIf="indicators.length > 0">
+              <thead>
+                <tr>
+                  <th>Indicador</th>
+                  <th>Dimensión</th>
+                  <th>Tipo</th>
+                  <th>Valor Actual</th>
+                  <th>Meta</th>
+                  <th>Rendimiento</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let indicator of indicators">
+                  <td>
+                    <div class="indicator-info">
+                      <strong>{{ indicator.name }}</strong>
+                      <div class="formula-display" *ngIf="indicator.formula">
+                        {{ indicator.formula }}
+                      </div>
+                    </div>
+                  </td>
+                  <td>{{ indicator.dimension_name }}</td>
+                  <td>{{ indicator.type | titlecase }}</td>
+                  <td><strong>{{ indicator.current_value }}{{ indicator.unit }}</strong></td>
+                  <td>{{ indicator.target_value }}{{ indicator.unit }}</td>
+                  <td>
+                    <span [class]="'status-' + getPerformanceClass(indicator.performance_percentage || 0)">
+                      {{ indicator.performance_percentage || 0 | number:'1.1-1' }}%
+                    </span>
+                  </td>
+                  <td>
+                    <span [class]="getStatusClass(indicator.status)">
+                      {{ indicator.status === 'active' ? 'Activo' : 'Inactivo' }}
+                    </span>
+                  </td>
+                  <td>
+                    <button class="btn-sm btn-warning"
+                      (click)="editNode({ id: indicator.id, name: indicator.name, type: 'indicator', expanded: false, data: indicator })">✏️</button>
+                    <button class="btn-sm btn-danger"
+                      (click)="deleteNode({ id: indicator.id, name: indicator.name, type: 'indicator', expanded: false, data: indicator })">🗑️</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="no-data" *ngIf="indicators.length === 0 && !isLoading">
+              <div class="no-data-icon">📊</div>
+              <h3>No hay indicadores disponibles</h3>
+              <p>Crea el primer indicador para comenzar</p>
+              <button class="btn btn-primary" (click)="openModal('indicator')">+ Crear Indicador</button>
+            </div>
+          </div>
+
+          <!-- Configuration Tab -->
+          <div class="tab-content" [class.active]="currentTab === 'config'">
+
+            <!-- Indicator Form -->
+            <div class="form-section">
+              <h3>📊 Configuración de Indicador</h3>
+              <form [formGroup]="indicatorForm" (ngSubmit)="onSubmitIndicator()">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label for="indicator-id">ID del Indicador *</label>
+                    <input type="text" id="indicator-id" formControlName="id" placeholder="automatizacion-rrhh"
+                      [class.error]="indicatorForm.get('id')?.invalid && indicatorForm.get('id')?.touched">
+                    <div class="error-message"
+                      *ngIf="indicatorForm.get('id')?.errors?.['required'] && indicatorForm.get('id')?.touched">
+                      El ID es requerido
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="indicator-name">Nombre del Indicador *</label>
+                    <input type="text" id="indicator-name" formControlName="name"
+                      placeholder="Automatización de tareas en RRHH"
+                      [class.error]="indicatorForm.get('name')?.invalid && indicatorForm.get('name')?.touched">
+                  </div>
+
+                  <div class="form-group">
+                    <label for="indicator-dimension">Dimensión *</label>
+                    <select id="indicator-dimension" formControlName="dimension_id"
+                      [class.error]="indicatorForm.get('dimension_id')?.invalid && indicatorForm.get('dimension_id')?.touched">
+                      <option value="">Seleccionar dimensión</option>
+                      <option *ngFor="let dimension of dimensions" [value]="dimension.id">
+                        {{ dimension.name }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="indicator-type">Tipo de Indicador *</label>
+                    <select id="indicator-type" formControlName="type"
+                      [class.error]="indicatorForm.get('type')?.invalid && indicatorForm.get('type')?.touched">
+                      <option value="">Seleccionar tipo</option>
+                      <option *ngFor="let type of indicatorTypes" [value]="type.value">
+                        {{ type.label }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="indicator-current">Valor Actual *</label>
+                    <input type="number" id="indicator-current" formControlName="current_value" placeholder="87"
+                      step="0.01" min="0">
+                  </div>
+
+                  <div class="form-group">
+                    <label for="indicator-target">Valor Meta *</label>
+                    <input type="number" id="indicator-target" formControlName="target_value" placeholder="85"
+                      step="0.01" min="0">
+                  </div>
+
+                  <div class="form-group">
+                    <label for="indicator-unit">Unidad de Medida *</label>
+                    <input type="text" id="indicator-unit" formControlName="unit" placeholder="%, días, cantidad">
+                  </div>
+
+                  <div class="form-group">
+                    <label for="indicator-status">Estado</label>
+                    <select id="indicator-status" formControlName="status">
+                      <option value="active">Activo</option>
+                      <option value="inactive">Inactivo</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-group full-width">
+                  <label for="indicator-description">Descripción</label>
+                  <textarea id="indicator-description" formControlName="description" rows="3"
+                    placeholder="Describe el propósito y uso de este indicador...">
+                  </textarea>
+                </div>
+
+                <div class="form-group full-width">
+                  <label for="indicator-formula">Fórmula de Cálculo</label>
+                  <textarea id="indicator-formula" formControlName="formula" rows="2"
+                    placeholder="(Tareas automatizadas / Total de tareas) * 100">
+                  </textarea>
+                </div>
+
+                <div class="form-actions">
+                  <button type="button" class="btn btn-outline" (click)="resetForms()">🔄 Limpiar</button>
+                  <button type="submit" class="btn btn-primary" [disabled]="!indicatorForm.valid">
+                    💾 {{ currentMode === 'new' ? 'Crear' : 'Actualizar' }} Indicador
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- Reports Tab -->
+          <div class="tab-content" [class.active]="currentTab === 'reports'">
+            <div class="reports-actions">
+              <button class="btn btn-primary" (click)="exportData('indicators')">📊 Reporte Detallado</button>
+              <button class="btn btn-outline" (click)="exportData('dimensions')">📈 Reporte por Dimensiones</button>
+              <button class="btn btn-outline" (click)="exportData('variables')">📉 Reporte por Variables</button>
+            </div>
+
+            <div class="dashboard-grid" *ngIf="dashboardStats">
+              <div class="metric-card excellent">
+                <div class="metric-value">{{ dashboardStats.summary.total_indicators }}</div>
+                <div class="metric-label">Total Indicadores</div>
+                <div class="metric-change change-positive">{{ dashboardStats.summary.total_dimensions }} dimensiones
+                  activas</div>
+              </div>
+
+              <div class="metric-card" [class.excellent]="dashboardStats.summary.critical_indicators === 0"
+                [class.warning]="dashboardStats.summary.critical_indicators > 0">
+                <div class="metric-value">{{ dashboardStats.summary.critical_indicators }}</div>
+                <div class="metric-label">Indicadores Críticos</div>
+                <div class="metric-change" [class.change-positive]="dashboardStats.summary.critical_indicators === 0"
+                  [class.change-negative]="dashboardStats.summary.critical_indicators > 0">
+                  {{ dashboardStats.summary.critical_indicators === 0 ? 'Todos en buen estado' : 'Requieren atención' }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal para Formularios - CORREGIDO -->
+<div class="modal" [class.show]="showModal" (click)="closeModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2 class="modal-title">
+        {{ currentMode === 'new' ? 'Nuevo' : 'Editar' }} {{ getSelectedNodeType() | titlecase }}
+      </h2>
+      <button class="close-btn" (click)="closeModal()">&times;</button>
+    </div>
+
+    <!-- Variable Form -->
+    <form *ngIf="modalType === 'variable'" [formGroup]="variableForm" (ngSubmit)="onSubmitVariable()">
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="var-id">ID de Variable *</label>
+          <input type="text" id="var-id" formControlName="id" placeholder="vd-gestion-rrhh"
+            [class.error]="variableForm.get('id')?.invalid && variableForm.get('id')?.touched">
+          <div class="error-message"
+            *ngIf="variableForm.get('id')?.errors?.['required'] && variableForm.get('id')?.touched">
+            El ID es requerido
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="var-name">Nombre *</label>
+          <input type="text" id="var-name" formControlName="name" placeholder="VD: Gestión de Recursos Humanos"
+            [class.error]="variableForm.get('name')?.invalid && variableForm.get('name')?.touched">
+          <div class="error-message"
+            *ngIf="variableForm.get('name')?.errors?.['required'] && variableForm.get('name')?.touched">
+            El nombre es requerido
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="var-status">Estado</label>
+          <select id="var-status" formControlName="status">
+            <option value="active">Activo</option>
+            <option value="inactive">Inactivo</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="var-description">Descripción</label>
+        <textarea id="var-description" formControlName="description" rows="3"
+          placeholder="Describe el propósito de esta variable..."></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-outline" (click)="closeModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary" [disabled]="!variableForm.valid || isLoading">
+          {{ isLoading ? '⏳ Guardando...' : getSubmitButtonText() + ' Variable' }}
+        </button>
+      </div>
+    </form>
+
+    <!-- Dimension Form - CORREGIDO: Mejor manejo del combo de variables -->
+    <form *ngIf="modalType === 'dimension'" [formGroup]="dimensionForm" (ngSubmit)="onSubmitDimension()">
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="dim-id">ID de Dimensión *</label>
+          <input type="text" id="dim-id" formControlName="id" placeholder="flujos-trabajo"
+            [class.error]="dimensionForm.get('id')?.invalid && dimensionForm.get('id')?.touched">
+          <div class="error-message"
+            *ngIf="dimensionForm.get('id')?.errors?.['required'] && dimensionForm.get('id')?.touched">
+            El ID es requerido
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="dim-name">Nombre *</label>
+          <input type="text" id="dim-name" formControlName="name" placeholder="Flujos de Trabajo"
+            [class.error]="dimensionForm.get('name')?.invalid && dimensionForm.get('name')?.touched">
+          <div class="error-message"
+            *ngIf="dimensionForm.get('name')?.errors?.['required'] && dimensionForm.get('name')?.touched">
+            El nombre es requerido
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="dim-variable">Variable Padre *</label>
+          <select id="dim-variable" formControlName="variable_id"
+            [class.error]="dimensionForm.get('variable_id')?.invalid && dimensionForm.get('variable_id')?.touched">
+            <option value="">Seleccionar variable</option>
+            <option *ngFor="let variable of variables" [value]="variable.id">
+              {{ variable.name }}
+            </option>
+          </select>
+          <div class="error-message"
+            *ngIf="dimensionForm.get('variable_id')?.errors?.['required'] && dimensionForm.get('variable_id')?.touched">
+            Debe seleccionar una variable
+          </div>
+          <!-- Debug info para variables -->
+          <small style="color: #666; font-size: 11px;" *ngIf="true">
+            Variables disponibles: {{ variables?.length || 0 }}
+          </small>
+        </div>
+        <div class="form-group">
+          <label for="dim-status">Estado</label>
+          <select id="dim-status" formControlName="status">
+            <option value="active">Activo</option>
+            <option value="inactive">Inactivo</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="dim-description">Descripción</label>
+        <textarea id="dim-description" formControlName="description" rows="3"
+          placeholder="Describe el propósito de esta dimensión..."></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-outline" (click)="closeModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary" [disabled]="!dimensionForm.valid || isLoading">
+          {{ isLoading ? '⏳ Guardando...' : getSubmitButtonText() + ' Dimensión' }}
+        </button>
+      </div>
+    </form>
+
+    <!-- Indicator Form - CORREGIDO: Mejor manejo del combo de dimensiones -->
+    <form *ngIf="modalType === 'indicator'" [formGroup]="indicatorForm" (ngSubmit)="onSubmitIndicator()">
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="modal-indicator-id">ID del Indicador *</label>
+          <input type="text" id="modal-indicator-id" formControlName="id" placeholder="automatizacion-rrhh"
+            [class.error]="indicatorForm.get('id')?.invalid && indicatorForm.get('id')?.touched">
+          <div class="error-message"
+            *ngIf="indicatorForm.get('id')?.errors?.['required'] && indicatorForm.get('id')?.touched">
+            El ID es requerido
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="modal-indicator-name">Nombre *</label>
+          <input type="text" id="modal-indicator-name" formControlName="name" placeholder="Automatización de tareas"
+            [class.error]="indicatorForm.get('name')?.invalid && indicatorForm.get('name')?.touched">
+          <div class="error-message"
+            *ngIf="indicatorForm.get('name')?.errors?.['required'] && indicatorForm.get('name')?.touched">
+            El nombre es requerido
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="modal-indicator-dimension">Dimensión *</label>
+          <select id="modal-indicator-dimension" formControlName="dimension_id"
+            [class.error]="indicatorForm.get('dimension_id')?.invalid && indicatorForm.get('dimension_id')?.touched">
+            <option value="">Seleccionar dimensión</option>
+            <option *ngFor="let dimension of dimensions" [value]="dimension.id">
+              {{ dimension.name }}
+              <span *ngIf="dimension.variable_name"> ({{ dimension.variable_name }})</span>
+            </option>
+          </select>
+          <div class="error-message"
+            *ngIf="indicatorForm.get('dimension_id')?.errors?.['required'] && indicatorForm.get('dimension_id')?.touched">
+            Debe seleccionar una dimensión
+          </div>
+          <!-- Debug info para dimensiones -->
+          <small style="color: #666; font-size: 11px;" *ngIf="true">
+            Dimensiones disponibles: {{ dimensions?.length || 0 }}
+            <span *ngIf="indicatorForm.get('dimension_id')?.value"> | Seleccionada: {{
+              indicatorForm.get('dimension_id')?.value }}</span>
+          </small>
+        </div>
+        <div class="form-group">
+          <label for="modal-indicator-type">Tipo *</label>
+          <select id="modal-indicator-type" formControlName="type"
+            [class.error]="indicatorForm.get('type')?.invalid && indicatorForm.get('type')?.touched">
+            <option value="">Seleccionar tipo</option>
+            <option *ngFor="let type of indicatorTypes" [value]="type.value">
+              {{ type.label }}
+            </option>
+          </select>
+          <div class="error-message"
+            *ngIf="indicatorForm.get('type')?.errors?.['required'] && indicatorForm.get('type')?.touched">
+            Debe seleccionar un tipo
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="modal-indicator-current">Valor Actual *</label>
+          <input type="number" id="modal-indicator-current" formControlName="current_value" placeholder="87" step="0.01"
+            min="0"
+            [class.error]="indicatorForm.get('current_value')?.invalid && indicatorForm.get('current_value')?.touched">
+          <div class="error-message"
+            *ngIf="indicatorForm.get('current_value')?.errors?.['required'] && indicatorForm.get('current_value')?.touched">
+            El valor actual es requerido
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="modal-indicator-target">Valor Meta *</label>
+          <input type="number" id="modal-indicator-target" formControlName="target_value" placeholder="85" step="0.01"
+            min="0"
+            [class.error]="indicatorForm.get('target_value')?.invalid && indicatorForm.get('target_value')?.touched">
+          <div class="error-message"
+            *ngIf="indicatorForm.get('target_value')?.errors?.['required'] && indicatorForm.get('target_value')?.touched">
+            El valor meta es requerido
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="modal-indicator-unit">Unidad *</label>
+          <input type="text" id="modal-indicator-unit" formControlName="unit" placeholder="%, días, cantidad"
+            [class.error]="indicatorForm.get('unit')?.invalid && indicatorForm.get('unit')?.touched">
+          <div class="error-message"
+            *ngIf="indicatorForm.get('unit')?.errors?.['required'] && indicatorForm.get('unit')?.touched">
+            La unidad es requerida
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="modal-indicator-status">Estado</label>
+          <select id="modal-indicator-status" formControlName="status">
+            <option value="active">Activo</option>
+            <option value="inactive">Inactivo</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="modal-indicator-description">Descripción</label>
+        <textarea id="modal-indicator-description" formControlName="description" rows="2"
+          placeholder="Describe el propósito de este indicador..."></textarea>
+      </div>
+      <div class="form-group">
+        <label for="modal-indicator-formula">Fórmula</label>
+        <textarea id="modal-indicator-formula" formControlName="formula" rows="2"
+          placeholder="(Tareas automatizadas / Total de tareas) * 100"></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-outline" (click)="closeModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary" [disabled]="!indicatorForm.valid || isLoading">
+          {{ isLoading ? '⏳ Guardando...' : getSubmitButtonText() + ' Indicador' }}
+        </button>
+      </div>
+    </form>
+
+    <!-- Loading indicator dentro del modal -->
+    <div *ngIf="isLoading" class="modal-loading">
+      <div class="spinner"></div>
+      <p>Procesando...</p>
+    </div>
+
+  </div>
+</div>

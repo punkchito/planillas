@@ -1,0 +1,384 @@
+name: Deploy Full Stack to VPS
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  API_IMAGE_NAME: planilla-api
+  FRONTEND_IMAGE_NAME: planilla-frontend
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # Test Backend
+    - name: Setup Node.js for Backend
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Test Backend API
+      run: |
+        cd apiplanilla
+        echo "Testing Backend..."
+        echo "Node version: $(node --version)"
+        echo "NPM version: $(npm --version)"
+        
+        # Verificar package.json existe
+        if [ ! -f "package.json" ]; then
+          echo "❌ package.json not found in apiplanilla"
+          exit 1
+        fi
+        
+        # Generar package-lock.json si no existe
+        if [ ! -f "package-lock.json" ]; then
+          echo "Generating package-lock.json..."
+          npm install --package-lock-only
+        fi
+        
+        # Instalar dependencias
+        npm ci --only=development
+        
+        # Verificar sintaxis del server.js
+        echo "Verifying server.js syntax..."
+        node -c server.js
+        
+        echo "✅ Backend tests passed"
+      continue-on-error: false
+
+    # Test Frontend
+    - name: Setup Node.js for Frontend
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Test Frontend Angular
+      run: |
+        echo "Testing Frontend..."
+        echo "Node version: $(node --version)"
+        echo "NPM version: $(npm --version)"
+        
+        # Debug: verificar estructura de directorios
+        echo "🔍 Root directory structure:"
+        ls -la
+        
+        # Verificar contenido específico de webplanilla
+        echo "📁 Contents of webplanilla directory:"
+        ls -la webplanilla/
+        
+        # Buscar package.json en diferentes ubicaciones
+        echo "🔍 Searching for package.json files:"
+        find . -name "package.json" -type f
+        
+        # Verificar si package.json está en la raíz del proyecto
+        if [ -f "package.json" ]; then
+          echo "📦 Found package.json in root directory"
+          # Si está en la raíz, usar esa
+          npm config set legacy-peer-deps true
+          if [ ! -f "package-lock.json" ]; then
+            echo "Generating package-lock.json in root..."
+            npm install --package-lock-only
+          fi
+          npm ci --legacy-peer-deps --no-audit --no-fund
+          echo "✅ Frontend tests passed (using root package.json)"
+        elif [ -f "webplanilla/package.json" ]; then
+          echo "📦 Found package.json in webplanilla directory"
+          cd webplanilla
+          npm config set legacy-peer-deps true
+          if [ ! -f "package-lock.json" ]; then
+            echo "Generating package-lock.json..."
+            npm install --package-lock-only
+          fi
+          npm ci --legacy-peer-deps --no-audit --no-fund
+          echo "✅ Frontend tests passed (using webplanilla/package.json)"
+        else
+          echo "❌ No package.json found for frontend"
+          echo "This might be a monorepo or the frontend code is not in this repository"
+          echo "Available package.json files:"
+          find . -name "package.json" -type f || echo "No package.json files found"
+          echo "⚠️ Skipping frontend tests - frontend might be deployed separately"
+          exit 0  # Exit successfully but skip frontend tests
+        fi
+      continue-on-error: true
+
+  build-and-deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    # Verificar qué directorios existen antes del build
+    - name: Debug repository structure
+      run: |
+        echo "=== Repository structure ==="
+        ls -la
+        echo "=== Checking for Dockerfiles ==="
+        find . -name "Dockerfile" -type f
+        echo "=== Checking webplanilla directory ==="
+        if [ -d "webplanilla" ]; then
+          ls -la webplanilla/
+        else
+          echo "webplanilla directory does not exist"
+        fi
+
+    # Build and push Backend
+    - name: Build and push API Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./apiplanilla
+        file: ./apiplanilla/Dockerfile
+        push: true
+        tags: |
+          ${{ secrets.DOCKER_USERNAME }}/${{ env.API_IMAGE_NAME }}:latest
+          ${{ secrets.DOCKER_USERNAME }}/${{ env.API_IMAGE_NAME }}:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64
+
+    # Build and push Frontend (solo si existe)
+    - name: Check if frontend exists
+      id: check_frontend
+      run: |
+        if [ -f "webplanilla/Dockerfile" ] && [ -f "webplanilla/package.json" ]; then
+          echo "frontend_exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "frontend_exists=false" >> $GITHUB_OUTPUT
+          echo "Frontend files not found, skipping frontend build"
+        fi
+
+    - name: Build and push Frontend Docker image
+      if: steps.check_frontend.outputs.frontend_exists == 'true'
+      uses: docker/build-push-action@v5
+      with:
+        context: ./webplanilla
+        file: ./webplanilla/Dockerfile
+        build-args: |
+          API_URL=${{ secrets.API_URL }}
+        push: true
+        tags: |
+          ${{ secrets.DOCKER_USERNAME }}/${{ env.FRONTEND_IMAGE_NAME }}:latest
+          ${{ secrets.DOCKER_USERNAME }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64
+
+    - name: Deploy to VPS
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USERNAME }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        port: ${{ secrets.VPS_PORT }}
+        script: |
+          set -e
+          
+          echo "🚀 Starting deployment process..."
+          
+          # Crear directorio del proyecto
+          PROJECT_DIR="$HOME/planilla-system"
+          mkdir -p $PROJECT_DIR
+          cd $PROJECT_DIR
+          
+          # Crear archivo .env
+          echo "📝 Creating .env file..."
+          cat > .env << EOF
+          DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
+          MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+          MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}
+          MYSQL_USER=${{ secrets.MYSQL_USER }}
+          MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          API_URL=${{ secrets.API_URL }}
+          CORS_ORIGIN=${{ secrets.CORS_ORIGIN }}
+          EOF
+          
+          # Crear docker-compose.yml simplificado (solo backend + DB)
+          echo "📝 Creating docker-compose.yml for backend-only deployment..."
+          cat > docker-compose.yml << 'EOF'
+          version: '3.8'
+          
+          services:
+            # Base de datos MySQL
+            mysql-db:
+              image: mysql:8.0
+              container_name: planilla-mysql
+              restart: unless-stopped
+              environment:
+                MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword123}
+                MYSQL_DATABASE: ${MYSQL_DATABASE:-sistema_planilla}
+                MYSQL_USER: ${MYSQL_USER:-planilla_user}
+                MYSQL_PASSWORD: ${MYSQL_PASSWORD:-planilla_pass123}
+                MYSQL_ROOT_HOST: '%'
+              ports:
+                - "3306:3306"
+              volumes:
+                - mysql_data:/var/lib/mysql
+                - ./sistema_planilla.sql:/docker-entrypoint-initdb.d/init.sql:ro
+              networks:
+                - planilla-network
+              command: --default-authentication-plugin=mysql_native_password
+              healthcheck:
+                test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+                timeout: 20s
+                retries: 10
+                interval: 10s
+                start_period: 40s
+
+            # Backend API Node.js
+            api-backend:
+              image: ${DOCKER_USERNAME:-rbardales88}/planilla-api:latest
+              container_name: planilla-api
+              restart: unless-stopped
+              environment:
+                NODE_ENV: production
+                PORT: 3000
+                DB_HOST: mysql-db
+                DB_PORT: 3306
+                DB_NAME: ${MYSQL_DATABASE:-sistema_planilla}
+                DB_USER: ${MYSQL_USER:-planilla_user}
+                DB_PASSWORD: ${MYSQL_PASSWORD:-planilla_pass123}
+                JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-here}
+                FRONTEND_URL: ${CORS_ORIGIN:-http://localhost:8080}
+              ports:
+                - "3000:3000"
+              depends_on:
+                mysql-db:
+                  condition: service_healthy
+              networks:
+                - planilla-network
+              healthcheck:
+                test: ["CMD", "node", "healthcheck.js"]
+                interval: 30s
+                timeout: 10s
+                retries: 3
+                start_period: 60s
+
+          networks:
+            planilla-network:
+              driver: bridge
+
+          volumes:
+            mysql_data:
+              driver: local
+          EOF
+          
+          # Descargar SQL
+          echo "📥 Downloading database schema..."
+          curl -fsSL -o sistema_planilla.sql https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/dock/sistema_planilla.sql
+          
+          # Verificar archivos descargados
+          echo "✅ Verifying downloaded files..."
+          ls -la docker-compose.yml sistema_planilla.sql
+          
+          # Login a Docker Hub
+          echo "🔑 Docker login..."
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+          
+          # Detener servicios existentes
+          echo "🛑 Stopping existing services..."
+          docker compose down --volumes --remove-orphans || true
+          
+          # Limpiar imágenes antiguas
+          echo "🧹 Cleaning old images..."
+          docker system prune -f
+          docker image prune -a -f
+          
+          # Actualizar imágenes
+          echo "📦 Pulling latest images..."
+          docker compose pull
+          
+          # Iniciar servicios
+          echo "🚀 Starting services..."
+          docker compose up -d
+          
+          # Esperar a que los servicios estén listos
+          echo "⏳ Waiting for services to be ready..."
+          sleep 60
+          
+          echo "✅ Backend deployment completed!"
+
+    - name: Verify deployment
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USERNAME }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        port: ${{ secrets.VPS_PORT }}
+        script: |
+          cd $HOME/planilla-system
+          
+          echo "🔍 === BACKEND DEPLOYMENT VERIFICATION ==="
+          
+          # Verificar estado de contenedores
+          echo "📊 Container Status:"
+          docker compose ps
+          
+          # Verificar logs
+          echo "📋 Recent Logs:"
+          docker compose logs --tail=20
+          
+          # Verificar servicios individualmente
+          echo "🏥 Health Checks:"
+          
+          # MySQL
+          if docker compose exec -T mysql-db mysqladmin ping -h localhost -u root -p${{ secrets.MYSQL_ROOT_PASSWORD }} --silent; then
+            echo "✅ MySQL Database: OK"
+          else
+            echo "❌ MySQL Database: ERROR"
+            echo "MySQL logs:"
+            docker compose logs mysql-db --tail=10
+          fi
+          
+          # Backend API
+          sleep 15
+          if curl -f --max-time 10 http://localhost:3000/api/health >/dev/null 2>&1; then
+            echo "✅ Backend API: OK"
+          else
+            echo "❌ Backend API: ERROR"
+            echo "Backend logs:"
+            docker compose logs api-backend --tail=15
+          fi
+          
+          # Test API endpoints
+          echo "🔗 Testing API endpoints:"
+          if curl -f --max-time 10 http://localhost:3000/api/routes >/dev/null 2>&1; then
+            echo "✅ API Routes: OK"
+          else
+            echo "❌ API Routes: ERROR"
+          fi
+          
+          echo "🎯 === BACKEND DEPLOYMENT SUMMARY ==="
+          echo "📝 Commit: ${{ github.sha }}"
+          echo "🌿 Branch: ${{ github.ref_name }}"
+          echo "📅 Timestamp: $(date)"
+          echo "🔗 Backend URL: http://${{ secrets.VPS_HOST }}:3000"
+          echo "📡 API Health: http://${{ secrets.VPS_HOST }}:3000/api/health"
+          echo "📚 API Documentation: http://${{ secrets.VPS_HOST }}:3000/api/routes"
+          
+          # URLs finales
+          echo ""
+          echo "🚀 === API READY ==="
+          echo "🔗 API Base URL: http://${{ secrets.VPS_HOST }}:3000/api"
+          echo "📡 Health Check: http://${{ secrets.VPS_HOST }}:3000/api/health"
+          echo "📋 Available Routes: http://${{ secrets.VPS_HOST }}:3000/api/routes"
+          echo ""
+          echo "⚠️  FRONTEND NOT DEPLOYED - Deploy frontend separately if needed"

@@ -1,0 +1,90 @@
+<div class="login-container">
+  <div class="logo">
+    <h1>Instituto Nuevo Milenio</h1>
+    <p>Sistema de Gestión de Planillas</p>
+  </div>
+
+  <!-- Mensaje de error global -->
+  <div class="alert alert-error" *ngIf="errorMessage">
+    <i class="error-icon">⚠️</i>
+    {{ errorMessage }}
+  </div>
+
+  <!-- Formulario de login -->
+  <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
+    
+    <!-- Campo Email -->
+    <div class="form-group">
+      <label for="email">Correo Electrónico</label>
+      <input 
+        type="email" 
+        id="email" 
+        formControlName="email"
+        placeholder="usuario@instituto.edu.pe"
+        [class.error]="hasFieldError('email')"
+        autocomplete="email">
+      <div class="field-error" *ngIf="hasFieldError('email')">
+        {{ getFieldError('email') }}
+      </div>
+    </div>
+
+    <!-- Campo Contraseña -->
+    <div class="form-group">
+      <label for="password">Contraseña</label>
+      <input 
+        type="password" 
+        id="password" 
+        formControlName="password"
+        placeholder="••••••••"
+        [class.error]="hasFieldError('password')"
+        autocomplete="current-password">
+      <div class="field-error" *ngIf="hasFieldError('password')">
+        {{ getFieldError('password') }}
+      </div>
+    </div>
+
+    <!-- Recordarme -->
+    <div class="remember-me">
+      <input type="checkbox" id="remember" formControlName="remember">
+      <label for="remember">Recordarme</label>
+    </div>
+
+    <!-- Botón de login -->
+    <button 
+      type="submit" 
+      class="login-btn"
+      [disabled]="isLoading"
+      [class.loading]="isLoading">
+      <span *ngIf="!isLoading">INGRESAR</span>
+      <span *ngIf="isLoading" class="loading-content">
+        <span class="spinner"></span>
+        INGRESANDO...
+      </span>
+    </button>
+
+  </form>
+
+  <!-- Olvidé mi contraseña -->
+  <div class="forgot-password">
+    <a href="#" (click)="onForgotPassword(); $event.preventDefault()">
+      ¿Olvidaste tu contraseña?
+    </a>
+  </div>
+
+  <!-- Usuarios de demostración -->
+  <div class="demo-users">
+    <h4>👤 Usuarios de Prueba:</h4>
+    
+    <div class="demo-user" (click)="useDemoCredentials('admin')">
+      <strong>Administrador:</strong> 
+      <span>admin@instituto.edu.pe</span>
+      <button type="button" class="demo-btn">Usar</button>
+    </div>
+    
+    <div class="demo-user" (click)="useDemoCredentials('user')">
+      <strong>Usuario:</strong> 
+      <span>usuario@instituto.edu.pe</span>
+      <button type="button" class="demo-btn">Usar</button>
+    </div>
+  </div>
+</div>

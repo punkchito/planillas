@@ -1,0 +1,525 @@
+<!-- src/app/components/conceptos/conceptos.component.html -->
+<div class="conceptos-container">
+  
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <div class="breadcrumb">
+        <a (click)="goToDashboard()">🏠 Dashboard</a>
+        <span>></span>
+        <span>Gestión de Conceptos</span>
+      </div>
+      <div>
+        <a class="btn btn-outline" (click)="goToDashboard()">Salir</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" *ngIf="isLoading">
+    <div class="loading-spinner">
+      <div class="spinner"></div>
+      <p>Cargando...</p>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    
+    <!-- Page Header -->
+    <section class="page-header">
+      <div class="page-title">
+        <h1>🧮 Gestión de Conceptos</h1>
+        <p>Configura los conceptos de ingresos, descuentos y aportes para el cálculo de planillas</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-outline" (click)="importConcepts()">📥 Importar</button>
+        <button class="btn btn-outline" (click)="exportConcepts()">📤 Exportar</button>
+        <button class="btn btn-primary" (click)="openModal('nuevo')">+ Nuevo Concepto</button>
+      </div>
+    </section>
+
+    <!-- Search Bar -->
+    <section class="search-section">
+      <form [formGroup]="searchForm!" class="search-form">
+        <div class="search-input-group">
+          <input 
+            type="text" 
+            formControlName="searchTerm"
+            placeholder="Buscar conceptos por código, nombre o descripción..."
+            class="search-input"
+          >
+          <button type="button" class="search-btn">🔍</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Tabs Container -->
+    <div class="tabs-container">
+      
+      <!-- Tabs Header -->
+      <div class="tabs-header">
+        <button 
+          class="tab-button"
+          [class.active]="currentTab === 'ingresos'"
+          (click)="showTab('ingresos')">
+          💰 Ingresos ({{conceptosPorTipo['ingreso']?.length || 0}})
+        </button>
+        <button 
+          class="tab-button"
+          [class.active]="currentTab === 'descuentos'"
+          (click)="showTab('descuentos')">
+          📉 Descuentos ({{conceptosPorTipo['descuento']?.length || 0}})
+        </button>
+        <button 
+          class="tab-button"
+          [class.active]="currentTab === 'aportes'"
+          (click)="showTab('aportes')">
+          🏛️ Aportes ({{conceptosPorTipo['aporte']?.length || 0}})
+        </button>
+        <button 
+          class="tab-button"
+          [class.active]="currentTab === 'constructor'"
+          (click)="showTab('constructor')">
+          🔧 Constructor de Fórmulas
+        </button>
+      </div>
+
+      <!-- Tab: Ingresos -->
+      <div class="tab-content" [class.active]="currentTab === 'ingresos'">
+        <div class="concepts-grid" *ngIf="conceptosPorTipo['ingreso']?.length! > 0; else noConceptsIngreso">
+          <div class="concept-card" *ngFor="let concepto of conceptosPorTipo['ingreso']">
+            <div class="concept-header">
+              <div class="concept-info">
+                <h3>{{concepto.nombre}}</h3>
+                <div class="concept-code">{{concepto.codigo}}</div>
+              </div>
+              <span class="concept-type type-ingreso">Ingreso</span>
+            </div>
+            <div class="concept-body">
+              <div class="concept-details">
+                <div class="detail-item">
+                  <span class="detail-label">Tipo de Cálculo</span>
+                  <span class="detail-value">{{getTipoCalculoLabel(concepto.tipo_calculo)}}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Estado</span>
+                  <span [class]="getStatusClass(concepto.estado)">
+                    {{concepto.estado | titlecase}}
+                  </span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Afecta a</span>
+                  <span class="detail-value">{{concepto.afecta_a}}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Orden</span>
+                  <span class="detail-value">{{concepto.orden}}</span>
+                </div>
+              </div>
+              
+              <div class="formula-section" *ngIf="concepto.formula">
+                <div class="formula-title">📝 Fórmula:</div>
+                <div class="formula-code">{{concepto.formula}}</div>
+              </div>
+
+              <div class="formula-section" *ngIf="concepto.valor_fijo">
+                <div class="formula-title">💵 Valor Fijo:</div>
+                <div class="formula-code">S/ {{concepto.valor_fijo | number:'1.2-2'}}</div>
+              </div>
+
+              <div class="formula-section" *ngIf="concepto.porcentaje">
+                <div class="formula-title">📊 Porcentaje:</div>
+                <div class="formula-code">{{concepto.porcentaje}}%</div>
+              </div>
+              
+              <div class="concept-actions">
+                <button class="btn btn-sm btn-info" (click)="testConcept(concepto)">🧪 Probar</button>
+                <button class="btn btn-sm btn-warning" (click)="openModal('editar', concepto)">✏️ Editar</button>
+                <button 
+                  class="btn btn-sm"
+                  [class.btn-danger]="concepto.estado === 'activo'"
+                  [class.btn-success]="concepto.estado === 'inactivo'"
+                  (click)="toggleConcepto(concepto)">
+                  {{concepto.estado === 'activo' ? '⏸️ Desactivar' : '▶️ Activar'}}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <ng-template #noConceptsIngreso>
+          <div class="no-data">
+            <div class="no-data-icon">💰</div>
+            <h3>No hay conceptos de ingreso</h3>
+            <p>Crea el primer concepto de ingreso para comenzar</p>
+            <button class="btn btn-primary" (click)="openModal('nuevo')">+ Crear Concepto</button>
+          </div>
+        </ng-template>
+      </div>
+
+      <!-- Tab: Descuentos -->
+      <div class="tab-content" [class.active]="currentTab === 'descuentos'">
+        <div class="concepts-grid" *ngIf="conceptosPorTipo['descuento']?.length! > 0; else noConceptsDescuento">
+          <div class="concept-card" *ngFor="let concepto of conceptosPorTipo['descuento']">
+            <div class="concept-header">
+              <div class="concept-info">
+                <h3>{{concepto.nombre}}</h3>
+                <div class="concept-code">{{concepto.codigo}}</div>
+              </div>
+              <span class="concept-type type-descuento">Descuento</span>
+            </div>
+            <div class="concept-body">
+              <div class="concept-details">
+                <div class="detail-item">
+                  <span class="detail-label">Tipo de Cálculo</span>
+                  <span class="detail-value">{{getTipoCalculoLabel(concepto.tipo_calculo)}}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Estado</span>
+                  <span [class]="getStatusClass(concepto.estado)">
+                    {{concepto.estado | titlecase}}
+                  </span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Afecta a</span>
+                  <span class="detail-value">{{concepto.afecta_a}}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Orden</span>
+                  <span class="detail-value">{{concepto.orden}}</span>
+                </div>
+              </div>
+              
+              <div class="formula-section" *ngIf="concepto.formula">
+                <div class="formula-title">📝 Fórmula:</div>
+                <div class="formula-code">{{concepto.formula}}</div>
+              </div>
+
+              <div class="formula-section" *ngIf="concepto.valor_fijo">
+                <div class="formula-title">💵 Valor Fijo:</div>
+                <div class="formula-code">S/ {{concepto.valor_fijo | number:'1.2-2'}}</div>
+              </div>
+
+              <div class="formula-section" *ngIf="concepto.porcentaje">
+                <div class="formula-title">📊 Porcentaje:</div>
+                <div class="formula-code">{{concepto.porcentaje}}%</div>
+              </div>
+              
+              <div class="concept-actions">
+                <button class="btn btn-sm btn-info" (click)="testConcept(concepto)">🧪 Probar</button>
+                <button class="btn btn-sm btn-warning" (click)="openModal('editar', concepto)">✏️ Editar</button>
+                <button 
+                  class="btn btn-sm"
+                  [class.btn-danger]="concepto.estado === 'activo'"
+                  [class.btn-success]="concepto.estado === 'inactivo'"
+                  (click)="toggleConcepto(concepto)">
+                  {{concepto.estado === 'activo' ? '⏸️ Desactivar' : '▶️ Activar'}}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <ng-template #noConceptsDescuento>
+          <div class="no-data">
+            <div class="no-data-icon">📉</div>
+            <h3>No hay conceptos de descuento</h3>
+            <p>Crea el primer concepto de descuento para comenzar</p>
+            <button class="btn btn-primary" (click)="openModal('nuevo')">+ Crear Concepto</button>
+          </div>
+        </ng-template>
+      </div>
+
+      <!-- Tab: Aportes -->
+      <div class="tab-content" [class.active]="currentTab === 'aportes'">
+        <div class="concepts-grid" *ngIf="conceptosPorTipo['aporte']?.length! > 0; else noConceptsAporte">
+          <div class="concept-card" *ngFor="let concepto of conceptosPorTipo['aporte']">
+            <div class="concept-header">
+              <div class="concept-info">
+                <h3>{{concepto.nombre}}</h3>
+                <div class="concept-code">{{concepto.codigo}}</div>
+              </div>
+              <span class="concept-type type-aporte">Aporte</span>
+            </div>
+            <div class="concept-body">
+              <div class="concept-details">
+                <div class="detail-item">
+                  <span class="detail-label">Tipo de Cálculo</span>
+                  <span class="detail-value">{{getTipoCalculoLabel(concepto.tipo_calculo)}}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Estado</span>
+                  <span [class]="getStatusClass(concepto.estado)">
+                    {{concepto.estado | titlecase}}
+                  </span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Afecta a</span>
+                  <span class="detail-value">{{concepto.afecta_a}}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Orden</span>
+                  <span class="detail-value">{{concepto.orden}}</span>
+                </div>
+              </div>
+              
+              <div class="formula-section" *ngIf="concepto.formula">
+                <div class="formula-title">📝 Fórmula:</div>
+                <div class="formula-code">{{concepto.formula}}</div>
+              </div>
+
+              <div class="formula-section" *ngIf="concepto.valor_fijo">
+                <div class="formula-title">💵 Valor Fijo:</div>
+                <div class="formula-code">S/ {{concepto.valor_fijo | number:'1.2-2'}}</div>
+              </div>
+
+              <div class="formula-section" *ngIf="concepto.porcentaje">
+                <div class="formula-title">📊 Porcentaje:</div>
+                <div class="formula-code">{{concepto.porcentaje}}%</div>
+              </div>
+              
+              <div class="concept-actions">
+                <button class="btn btn-sm btn-info" (click)="testConcept(concepto)">🧪 Probar</button>
+                <button class="btn btn-sm btn-warning" (click)="openModal('editar', concepto)">✏️ Editar</button>
+                <button 
+                  class="btn btn-sm"
+                  [class.btn-danger]="concepto.estado === 'activo'"
+                  [class.btn-success]="concepto.estado === 'inactivo'"
+                  (click)="toggleConcepto(concepto)">
+                  {{concepto.estado === 'activo' ? '⏸️ Desactivar' : '▶️ Activar'}}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <ng-template #noConceptsAporte>
+          <div class="no-data">
+            <div class="no-data-icon">🏛️</div>
+            <h3>No hay conceptos de aporte</h3>
+            <p>Crea el primer concepto de aporte para comenzar</p>
+            <button class="btn btn-primary" (click)="openModal('nuevo')">+ Crear Concepto</button>
+          </div>
+        </ng-template>
+      </div>
+
+      <!-- Tab: Constructor de Fórmulas -->
+      <div class="tab-content" [class.active]="currentTab === 'constructor'">
+        <div class="formula-builder">
+          <div class="builder-header">
+            <h3>🔧 Constructor de Fórmulas</h3>
+            <p>Construye fórmulas arrastrando variables o haciendo clic en ellas</p>
+          </div>
+
+          <h4>📊 Variables Disponibles:</h4>
+          <div class="variables-section">
+            <div 
+              class="variable-item" 
+              *ngFor="let variable of variables"
+              (click)="addToFormula(variable.codigo)">
+              <div class="variable-code">{{variable.codigo}}</div>
+              <div class="variable-name">{{variable.nombre}}</div>
+            </div>
+          </div>
+
+          <h4>📝 Editor de Fórmula:</h4>
+          <textarea 
+            [(ngModel)]="formulaEditor"
+            class="formula-input" 
+            placeholder="Escribe tu fórmula aquí o haz clic en las variables de arriba...
+
+Ejemplos:
+- SUELDO_BASICO * 0.10
+- IF(AÑOS_SERVICIO > 5, SUELDO_BASICO * 0.05, 0)
+- MAX(HORAS_EXTRAS * 25, 100)">
+          </textarea>
+
+          <div class="formula-actions">
+            <button class="btn btn-outline" (click)="clearFormula()">🗑️ Limpiar</button>
+            <button class="btn btn-info" (click)="validateFormula()">✅ Validar</button>
+            <button class="btn btn-warning" (click)="testFormula()">🧪 Probar</button>
+            <button class="btn btn-primary" (click)="saveFormula()">💾 Guardar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal para Nuevo/Editar Concepto -->
+<div class="modal" [class.show]="showModal" (click)="closeModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2 class="modal-title">
+        {{currentMode === 'nuevo' ? '🧮 Nuevo Concepto' : '✏️ Editar Concepto'}}
+      </h2>
+      <button class="close-btn" (click)="closeModal()">&times;</button>
+    </div>
+
+    <form [formGroup]="conceptForm!" (ngSubmit)="submitForm()">
+      <div class="form-grid">
+        
+        <!-- Código -->
+        <div class="form-group">
+          <label for="codigo">Código *</label>
+          <input 
+            type="text" 
+            id="codigo" 
+            formControlName="codigo" 
+            placeholder="ING004" 
+            maxlength="10"
+            [class.error]="conceptForm!.get('codigo')?.invalid && conceptForm!.get('codigo')?.touched">
+          <div class="error-message" *ngIf="conceptForm!.get('codigo')?.errors?.['required'] && conceptForm!.get('codigo')?.touched">
+            El código es requerido
+          </div>
+        </div>
+
+        <!-- Nombre -->
+        <div class="form-group">
+          <label for="nombre">Nombre del Concepto *</label>
+          <input 
+            type="text" 
+            id="nombre" 
+            formControlName="nombre" 
+            placeholder="Bonificación Familiar"
+            [class.error]="conceptForm!.get('nombre')?.invalid && conceptForm!.get('nombre')?.touched">
+          <div class="error-message" *ngIf="conceptForm!.get('nombre')?.errors?.['required'] && conceptForm!.get('nombre')?.touched">
+            El nombre es requerido
+          </div>
+        </div>
+
+        <!-- Tipo de Concepto -->
+        <div class="form-group">
+          <label for="tipo_concepto">Tipo de Concepto *</label>
+          <select 
+            id="tipo_concepto" 
+            formControlName="tipo_concepto"
+            [class.error]="conceptForm!.get('tipo_concepto')?.invalid && conceptForm!.get('tipo_concepto')?.touched">
+            <option value="">Seleccionar tipo</option>
+            <option *ngFor="let tipo of tiposConcepto" [value]="tipo.value">
+              {{tipo.label}}
+            </option>
+          </select>
+          <div class="error-message" *ngIf="conceptForm!.get('tipo_concepto')?.errors?.['required'] && conceptForm!.get('tipo_concepto')?.touched">
+            El tipo de concepto es requerido
+          </div>
+        </div>
+
+        <!-- Tipo de Cálculo -->
+        <div class="form-group">
+          <label for="tipo_calculo">Tipo de Cálculo *</label>
+          <select 
+            id="tipo_calculo" 
+            formControlName="tipo_calculo"
+            [class.error]="conceptForm!.get('tipo_calculo')?.invalid && conceptForm!.get('tipo_calculo')?.touched">
+            <option value="">Seleccionar tipo</option>
+            <option *ngFor="let tipo of tiposCalculo" [value]="tipo.value">
+              {{tipo.label}}
+            </option>
+          </select>
+          <div class="error-message" *ngIf="conceptForm!.get('tipo_calculo')?.errors?.['required'] && conceptForm!.get('tipo_calculo')?.touched">
+            El tipo de cálculo es requerido
+          </div>
+        </div>
+
+        <!-- Valor Fijo -->
+        <div class="form-group" *ngIf="conceptForm!.get('tipo_calculo')?.value === 'fijo'">
+          <label for="valor_fijo">Valor Fijo *</label>
+          <input 
+            type="number" 
+            id="valor_fijo" 
+            formControlName="valor_fijo" 
+            placeholder="0.00" 
+            step="0.01" 
+            min="0"
+            [class.error]="conceptForm!.get('valor_fijo')?.invalid && conceptForm!.get('valor_fijo')?.touched">
+          <div class="error-message" *ngIf="conceptForm!.get('valor_fijo')?.errors?.['required'] && conceptForm!.get('valor_fijo')?.touched">
+            El valor fijo es requerido
+          </div>
+        </div>
+
+        <!-- Porcentaje -->
+        <div class="form-group" *ngIf="conceptForm!.get('tipo_calculo')?.value === 'porcentual'">
+          <label for="porcentaje">Porcentaje (%) *</label>
+          <input 
+            type="number" 
+            id="porcentaje" 
+            formControlName="porcentaje" 
+            placeholder="0.00" 
+            step="0.01" 
+            min="0" 
+            max="100"
+            [class.error]="conceptForm!.get('porcentaje')?.invalid && conceptForm!.get('porcentaje')?.touched">
+          <div class="error-message" *ngIf="conceptForm!.get('porcentaje')?.errors?.['required'] && conceptForm!.get('porcentaje')?.touched">
+            El porcentaje es requerido
+          </div>
+        </div>
+
+        <!-- Orden -->
+        <div class="form-group">
+          <label for="orden">Orden de Cálculo</label>
+          <input 
+            type="number" 
+            id="orden" 
+            formControlName="orden" 
+            placeholder="1" 
+            min="1" 
+            max="999">
+        </div>
+
+        <!-- Estado -->
+        <div class="form-group">
+          <label for="estado">Estado</label>
+          <select id="estado" formControlName="estado">
+            <option value="activo">Activo</option>
+            <option value="inactivo">Inactivo</option>
+          </select>
+        </div>
+
+        <!-- Afecta a -->
+        <div class="form-group full-width">
+          <label for="afecta_a">Afecta a</label>
+          <input 
+            type="text" 
+            id="afecta_a" 
+            formControlName="afecta_a" 
+            placeholder="Todos los trabajadores">
+        </div>
+      </div>
+
+      <!-- Fórmula -->
+      <div class="form-group full-width" *ngIf="conceptForm!.get('tipo_calculo')?.value === 'calculado'">
+        <label for="formula">Fórmula de Cálculo *</label>
+        <textarea 
+          id="formula" 
+          formControlName="formula" 
+          rows="4" 
+          placeholder="Ingresa la fórmula de cálculo..."
+          [class.error]="conceptForm!.get('formula')?.invalid && conceptForm!.get('formula')?.touched">
+        </textarea>
+        <div class="error-message" *ngIf="conceptForm!.get('formula')?.errors?.['required'] && conceptForm!.get('formula')?.touched">
+          La fórmula es requerida para cálculos calculados
+        </div>
+      </div>
+
+      <!-- Descripción -->
+      <div class="form-group full-width">
+        <label for="descripcion">Descripción</label>
+        <textarea 
+          id="descripcion" 
+          formControlName="descripcion" 
+          rows="3" 
+          placeholder="Describe el propósito y uso de este concepto...">
+        </textarea>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-outline" (click)="closeModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary" [disabled]="!conceptForm!.valid">
+          {{currentMode === 'nuevo' ? 'Crear Concepto' : 'Actualizar Concepto'}}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
