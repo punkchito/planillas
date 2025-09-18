@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { BehaviorSubject, Observable, throwError } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
+import { environment } from '../environments/environment';
 
 import {
   User,
@@ -16,7 +17,7 @@ import {
   providedIn: 'root'
 })
 export class AuthService {
-  private readonly API_URL = 'http://localhost:3000/api';
+  private readonly API_URL = `${environment.apiUrl}`;
   private readonly TOKEN_KEY = 'auth_token';
   private readonly USER_KEY = 'current_user';
 
