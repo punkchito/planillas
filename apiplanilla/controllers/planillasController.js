@@ -133,7 +133,7 @@ class PlanillasController {
     // ✅ CAMBIO: Método estático para calcular un trabajador individual
     static async calcularTrabajador(trabajador, conceptos, tipoPlanilla) {
         let sueldoBase = parseFloat(trabajador.sueldo_basico) || 0;
-        
+        console.log("sueldoBase: ",sueldoBase);
         // Aplicar multiplicadores según tipo de planilla
         const multiplicadores = {
             'regular': 1,
@@ -233,7 +233,7 @@ class PlanillasController {
         try {
             switch (concepto.tipo_calculo) {
                 case 'fijo':
-                    return parseFloat(concepto.valor_fijo) || 0;
+                    return parseFloat(concepto.valor_fijo) || (concepto.formula=='SUELDO_CONTRATO'?variables.SUELDO_BASICO:0);
 
                 case 'porcentual':
                     const porcentaje = parseFloat(concepto.porcentaje) || 0;
